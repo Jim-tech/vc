@@ -1,0 +1,3 @@
+---- PCAP_OPENFLAG_PROMISCUOUS Matches (2 in 2 files) ----
+McastDlg.cpp:	                          PCAP_OPENFLAG_PROMISCUOUS,// promiscuous mode
+remote-ext.h (Include):#define PCAP_OPENFLAG_PROMISCUOUS		1
