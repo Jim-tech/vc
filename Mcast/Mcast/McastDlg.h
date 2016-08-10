@@ -12,6 +12,7 @@ class CMcastDlg : public CDialogEx
 // Construction
 public:
 	CMcastDlg(CWnd* pParent = NULL);	// standard constructor
+	virtual ~CMcastDlg();
 
 // Dialog Data
 	enum { IDD = IDD_MCAST_DIALOG };
@@ -31,12 +32,13 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
-	CComboBox m_devctrl;
 	afx_msg void OnClickedBtnStart();
-	CButton m_btnStart;
 	afx_msg void OnClickedBtnStop();
-	CButton m_btnStop;
 	afx_msg void OnClickedBtnSw();
+	CComboBox m_devctrl;
+	CButton m_btnStart;
+	CButton m_btnStop;
+	CButton m_btnselect;    
 	CString m_imgPath;
 	CString m_strInfo;
     CStatusBarCtrl *m_pStatusBar;
