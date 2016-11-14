@@ -4,6 +4,7 @@
 
 #pragma once
 #include "afxwin.h"
+#include "afxcmn.h"
 
 
 // CMcastDlg dialog
@@ -43,4 +44,6 @@ public:
 	CString m_strInfo;
     CStatusBarCtrl *m_pStatusBar;
     CWinThread     *m_pSendThread;
+	CSliderCtrl m_rateCtrl;
+	CString m_rateInfo;
 };

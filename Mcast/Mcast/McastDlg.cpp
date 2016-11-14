@@ -89,6 +89,7 @@ CMcastDlg::CMcastDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMcastDlg::IDD, pParent)
 	, m_imgPath(_T(""))
 	, m_strInfo(_T(""))
+	, m_rateInfo(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_pSendThread = NULL;
@@ -109,6 +110,8 @@ void CMcastDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BTN_SW, m_btnselect);
 	DDX_Text(pDX, IDC_SW_PATH, m_imgPath);
 	DDX_Text(pDX, IDC_EDIT_INFO, m_strInfo);
+	DDX_Control(pDX, IDC_SLIDER_RATE, m_rateCtrl);
+	//DDX_Text(pDX, IDC_EDIT_RATE, m_rateInfo);
 }
 
 BEGIN_MESSAGE_MAP(CMcastDlg, CDialogEx)
@@ -209,6 +212,11 @@ BOOL CMcastDlg::OnInitDialog()
 	int width = (Rect.right - Rect.left) / 3;
 	int nParts[3] = {width, 2 * width, -1};
 	m_pStatusBar->SetParts(3, nParts); 
+
+	m_rateCtrl.SetRange(100, 1000);
+	m_rateCtrl.SetTicFreq(100);
+	m_rateCtrl.SetPos(800);
+	UpdateData(TRUE);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
