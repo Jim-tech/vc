@@ -1,0 +1,22 @@
+﻿Build started 2016/11/21 14:57:03.
+     1>Project "E:\gitlocal\vc\ComOverTCPIP\ComOverTCPIP\ComOverTCPIP.vcxproj" on node 2 (Rebuild target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _WINDOWS /D _DEBUG /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yc"stdafx.h" /Fp"Debug\ComOverTCPIP.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt stdafx.cpp
+         stdafx.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _WINDOWS /D _DEBUG /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\ComOverTCPIP.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ComOverTCPIP.cpp ComOverTCPIPDlg.cpp
+         ComOverTCPIPDlg.cpp
+         ComOverTCPIP.cpp
+         Generating Code...
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /D _DEBUG /D _UNICODE /D UNICODE /l"0x0409" /IDebug\ /nologo /fo"Debug\ComOverTCPIP.res" ComOverTCPIP.rc 
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\gitlocal\vc\ComOverTCPIP\Debug\ComOverTCPIP.exe" /INCREMENTAL /NOLOGO /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /manifestinput:"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\Include\Manifest\dpiaware.manifest" /DEBUG /PDB:"E:\gitlocal\vc\ComOverTCPIP\Debug\ComOverTCPIP.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /ENTRY:"wWinMainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\gitlocal\vc\ComOverTCPIP\Debug\ComOverTCPIP.lib" /MACHINE:X86 Debug\ComOverTCPIP.res
+         Debug\ComOverTCPIP.obj
+         Debug\ComOverTCPIPDlg.obj
+         Debug\stdafx.obj
+         ComOverTCPIP.vcxproj -> E:\gitlocal\vc\ComOverTCPIP\Debug\ComOverTCPIP.exe
+     1>Done Building Project "E:\gitlocal\vc\ComOverTCPIP\ComOverTCPIP\ComOverTCPIP.vcxproj" (Rebuild target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:09.43
