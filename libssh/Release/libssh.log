@@ -1,0 +1,24 @@
+﻿Build started 2015/11/26 17:39:30.
+     1>Project "E:\DEV\emTest\libssh\libssh.vcxproj" on node 3 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _LIB /D _USING_V110_SDK71_ /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Release\ssh.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ssh.cpp
+         ssh.cpp
+     1>ssh.cpp(462): error C2065: 'ERR_WSA_START' : undeclared identifier
+     1>ssh.cpp(469): error C2065: 'ERR_LIBSSH_INIT' : undeclared identifier
+     1>ssh.cpp(513): error C2065: 'ERR_CONN_FAIL' : undeclared identifier
+     1>ssh.cpp(522): error C2065: 'ERR_SSH_SHAKE' : undeclared identifier
+     1>ssh.cpp(548): error C2065: 'ERR_SSH_AUTH' : undeclared identifier
+     1>ssh.cpp(554): error C2065: 'ERR_SSH_AUTH' : undeclared identifier
+     1>ssh.cpp(560): error C2065: 'ERR_SSH_AUTH' : undeclared identifier
+     1>ssh.cpp(563): error C2065: 'ERR_SSH_AUTH' : undeclared identifier
+     1>ssh.cpp(569): error C2065: 'ERR_SSH_SESSION' : undeclared identifier
+     1>ssh.cpp(582): error C2065: 'ERR_SSH_PTY' : undeclared identifier
+     1>ssh.cpp(588): error C2065: 'ERR_SSH_CHANNEL' : undeclared identifier
+     1>ssh.cpp(762): error C2065: 'ERR_SSH_NOT_READY' : undeclared identifier
+     1>ssh.cpp(793): error C2065: 'ERR_SSH_NOT_READY' : undeclared identifier
+     1>ssh.cpp(826): error C2065: 'ERR_SSH_NOT_READY' : undeclared identifier
+     1>Done Building Project "E:\DEV\emTest\libssh\libssh.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:00.33
