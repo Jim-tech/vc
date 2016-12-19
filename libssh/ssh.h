@@ -19,10 +19,10 @@ typedef enum
 	ERR_SSH_NOT_READY = 12,
 }SSH_ERR_E;
 
-int  ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, int *pCtrlID);
+int  ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned short port, int *pCtrlID);
 void ssh_sessiondeinit(int ctrlID);
-int  ssh_executecmd(int ctrlID, char *pcmd, char *pretstr, int maxretlen);
-int  ssh_getfile(int ctrlID, char *pSrcpath, char *pDstpath);
-int  ssh_putfile(int ctrlID, char *pSrcpath, char *pDstpath);
+int  ssh_executecmd(int ctrlID, char *pcmd, char *pretstr, int maxretlen, int timeout);
+int  ssh_getfile(int ctrlID, char *pSrcpath, char *pDstpath, int timeout);
+int  ssh_putfile(int ctrlID, char *pSrcpath, char *pDstpath, int timeout);
 
 #endif

@@ -1,14 +1,16 @@
-﻿Build started 2016/12/6 15:19:51.
-     1>Project "E:\DEV\GitWork\Git\libssh\libssh.vcxproj" on node 2 (Build target(s)).
+﻿Build started 2016/12/7 19:19:04.
+     1>Project "E:\gitlocal\vc\libssh\libssh.vcxproj" on node 2 (Rebuild target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\libssh.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ssh.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yc"stdafx.h" /Fp"Debug\libssh.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt stdafx.cpp
+         stdafx.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\libssh.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ssh.cpp
          ssh.cpp
        Lib:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"E:\DEV\GitWork\Git\libssh\Debug\libssh.lib" /NOLOGO Debug\ssh.obj
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"E:\gitlocal\vc\libssh\Debug\libssh.lib" /NOLOGO Debug\ssh.obj
          Debug\stdafx.obj
-         libssh.vcxproj -> E:\DEV\GitWork\Git\libssh\Debug\libssh.lib
-     1>Done Building Project "E:\DEV\GitWork\Git\libssh\libssh.vcxproj" (Build target(s)).
+         libssh.vcxproj -> E:\gitlocal\vc\libssh\Debug\libssh.lib
+     1>Done Building Project "E:\gitlocal\vc\libssh\libssh.vcxproj" (Rebuild target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.82
+Time Elapsed 00:00:00.59

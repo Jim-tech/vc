@@ -1,0 +1,32 @@
+---- g_hIPListMutex Matches (31 in 1 files) ----
+BatchUpDlg.cpp (BatchUp):HANDLE       g_hIPListMutex = NULL;
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):		WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):		WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):		WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):		WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):		ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	WaitForSingleObject(g_hIPListMutex,INFINITE);
+BatchUpDlg.cpp (BatchUp):				ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):			ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	ReleaseMutex(g_hIPListMutex);
+BatchUpDlg.cpp (BatchUp):	g_hIPListMutex = CreateMutex(NULL, FALSE, _T("IPlist"));
+BatchUpDlg.cpp (BatchUp):	if (NULL == g_hIPListMutex)
+BatchUpDlg.cpp (BatchUp):	if (NULL != g_hIPListMutex)
+BatchUpDlg.cpp (BatchUp):		CloseHandle(g_hIPListMutex);

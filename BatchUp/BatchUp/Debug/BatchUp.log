@@ -1,0 +1,40 @@
+﻿Build started 2016/12/19 8:48:51.
+     1>Project "E:\DEV\vc\BatchUp\BatchUp\BatchUp.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _WINDOWS /D _DEBUG /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\BatchUp.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt BatchUpDlg.cpp
+         BatchUpDlg.cpp
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\DEV\vc\BatchUp\Debug\BatchUp.exe" /INCREMENTAL /NOLOGO /LIBPATH:.\Lib ssh.lib ssleay32.lib libeay32.lib libssh2.lib libpacket.a libwpcap.a /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /manifestinput:"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\Include\Manifest\dpiaware.manifest" /DEBUG /PDB:"E:\DEV\vc\BatchUp\Debug\BatchUp.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /ENTRY:"wWinMainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\DEV\vc\BatchUp\Debug\BatchUp.lib" /MACHINE:X86 Debug\BatchUp.res
+         Debug\BatchUp.obj
+         Debug\BatchUpDlg.obj
+         Debug\bru_cmd.obj
+         Debug\ColorListCtrl.obj
+         Debug\stdafx.obj
+         ssh.lib(ssh.obj) : MSIL .netmodule or module compiled with /GL found; restarting link with /LTCG; add /LTCG to the link command line to improve linker performance
+     1>LINK : warning LNK4075: ignoring '/INCREMENTAL' due to '/LTCG' specification
+     1>BatchUp.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/OPT:LBR' specification
+     1>libwpcap.a(d000056.o) : warning LNK4078: multiple '.text' sections found with different attributes (E0300020)
+     1>LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library
+         Generating code
+         Finished generating code
+     1>libssh2.lib(channel.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(channel.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(comp.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(comp.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(crypt.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(crypt.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(global.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(global.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(hostkey.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(hostkey.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(keepalive.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(keepalive.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(kex.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(kex.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(mac.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(mac.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(misc.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(misc.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(openssl.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(openssl.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(packet.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(packet.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(scp.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(scp.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(session.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(session.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(transport.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(transport.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+     1>libssh2.lib(userauth.obj) : warning LNK4099: PDB 'vc100.pdb' was not found with 'libssh2.lib(userauth.obj)' or at 'E:\DEV\vc\BatchUp\Debug\vc100.pdb'; linking object as if no debug info
+         BatchUp.vcxproj -> E:\DEV\vc\BatchUp\Debug\BatchUp.exe
+     1>Done Building Project "E:\DEV\vc\BatchUp\BatchUp\BatchUp.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:04.92
