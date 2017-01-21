@@ -1,20 +1,15 @@
 #ifndef _LINUX_ELF_H
 #define _LINUX_ELF_H
 
-#include <linux/types.h>
-#include <linux/elf-em.h>
-#ifdef __KERNEL__
-#include <asm/elf.h>
-#endif
+typedef signed char    __s8;
+typedef unsigned char  __u8;
+typedef signed short   __s16;
+typedef unsigned short __u16;
+typedef signed int     __s32;
+typedef unsigned int   __u32;
+typedef signed long    __s64;
+typedef unsigned long  __u64;
 
-struct file;
-
-#ifndef elf_read_implies_exec
-  /* Executables for which elf_read_implies_exec() returns TRUE will
-     have the READ_IMPLIES_EXEC personality flag set automatically.
-     Override in asm/elf.h as needed.  */
-# define elf_read_implies_exec(ex, have_pt_gnu_stack)	0
-#endif
 
 /* 32-bit ELF base types. */
 typedef __u32	Elf32_Addr;
@@ -412,37 +407,103 @@ typedef struct elf64_note {
   Elf64_Word n_type;	/* Content type */
 } Elf64_Nhdr;
 
-#ifdef __KERNEL__
-#if ELF_CLASS == ELFCLASS32
+/**********************************************************************************************************************************/
+typedef int   pid_t;
 
-extern Elf32_Dyn _DYNAMIC [];
-#define elfhdr		elf32_hdr
-#define elf_phdr	elf32_phdr
-#define elf_shdr	elf32_shdr
-#define elf_note	elf32_note
-#define elf_addr_t	Elf32_Off
-#define Elf_Half	Elf32_Half
+/*********************************************************************************************/
 
-#else
+struct elf_siginfo
+{
+	int	si_signo;			/* signal number */
+	int	si_code;			/* extra code */
+	int	si_errno;			/* errno */
+};
 
-extern Elf64_Dyn _DYNAMIC [];
-#define elfhdr		elf64_hdr
-#define elf_phdr	elf64_phdr
-#define elf_shdr	elf64_shdr
-#define elf_note	elf64_note
-#define elf_addr_t	Elf64_Off
-#define Elf_Half	Elf64_Half
+struct pt_regs {
+	long uregs[18];
+};
 
+typedef unsigned long elf_greg_t;
+typedef unsigned long elf_freg_t[3];
+
+#define ELF_NGREG (sizeof (struct pt_regs) / sizeof(elf_greg_t))
+typedef elf_greg_t elf_gregset_t[ELF_NGREG];
+
+struct user_fp {
+	struct fp_reg {
+		unsigned int sign1:1;
+		unsigned int unused:15;
+		unsigned int sign2:1;
+		unsigned int exponent:14;
+		unsigned int j:1;
+		unsigned int mantissa1:31;
+		unsigned int mantissa0:32;
+	} fpregs[8];
+	unsigned int fpsr:32;
+	unsigned int fpcr:32;
+	unsigned char ftype[8];
+	unsigned int init_flag;
+};
+
+typedef struct user_fp elf_fpregset_t;
+
+struct elf_prstatus
+{
+#if 0
+	long	pr_flags;	/* XXX Process flags */
+	short	pr_why;		/* XXX Reason for process halt */
+	short	pr_what;	/* XXX More detailed reason */
 #endif
-
-/* Optional callbacks to write extra ELF notes. */
-#ifndef ARCH_HAVE_EXTRA_ELF_NOTES
-static inline int elf_coredump_extra_notes_size(void) { return 0; }
-static inline int elf_coredump_extra_notes_write(struct file *file,
-			loff_t *foffset) { return 0; }
-#else
-extern int elf_coredump_extra_notes_size(void);
-extern int elf_coredump_extra_notes_write(struct file *file, loff_t *foffset);
+	struct elf_siginfo pr_info;	/* Info associated with signal */
+	short	pr_cursig;		/* Current signal */
+	unsigned long pr_sigpend;	/* Set of pending signals */
+	unsigned long pr_sighold;	/* Set of held signals */
+#if 0
+	struct sigaltstack pr_altstack;	/* Alternate stack info */
+	struct sigaction pr_action;	/* Signal action for current sig */
 #endif
-#endif /* __KERNEL__ */
+	pid_t	pr_pid;
+	pid_t	pr_ppid;
+	pid_t	pr_pgrp;
+	pid_t	pr_sid;
+	struct timeval pr_utime;	/* User time */
+	struct timeval pr_stime;	/* System time */
+	struct timeval pr_cutime;	/* Cumulative user time */
+	struct timeval pr_cstime;	/* Cumulative system time */
+#if 0
+	long	pr_instr;		/* Current instruction */
+#endif
+	elf_gregset_t pr_reg;	/* GP registers */
+#ifdef CONFIG_BINFMT_ELF_FDPIC
+	/* When using FDPIC, the loadmap addresses need to be communicated
+	 * to GDB in order for GDB to do the necessary relocations.  The
+	 * fields (below) used to communicate this information are placed
+	 * immediately after ``pr_reg'', so that the loadmap addresses may
+	 * be viewed as part of the register set if so desired.
+	 */
+	unsigned long pr_exec_fdpic_loadmap;
+	unsigned long pr_interp_fdpic_loadmap;
+#endif
+	int pr_fpvalid;		/* True if math co-processor being used.  */
+};
+
+#define ELF_PRARGSZ	(80)	/* Number of chars for args */
+
+struct elf_prpsinfo
+{
+	char	pr_state;	/* numeric process state */
+	char	pr_sname;	/* char for pr_state */
+	char	pr_zomb;	/* zombie */
+	char	pr_nice;	/* nice val */
+	unsigned long pr_flag;	/* flags */
+	unsigned short	pr_uid;
+	unsigned short	pr_gid;
+	pid_t	pr_pid, pr_ppid, pr_pgrp, pr_sid;
+	/* Lots missing */
+	char	pr_fname[16];	/* filename of executable */
+	char	pr_psargs[ELF_PRARGSZ];	/* initial part of arg list */
+};
+
+/**********************************************************************************************************************************/
+
 #endif /* _LINUX_ELF_H */

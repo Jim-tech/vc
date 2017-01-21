@@ -6,6 +6,22 @@
 
 #pragma once
 
+typedef struct
+{
+    elf32_hdr     st_elfhdr;
+    #pragma warning(disable : 4200) 
+    elf32_phdr    ast_phdr[0];
+    #pragma warning(disable : 4200) 
+}corehdr_s;
+
+enum ListColAttr
+{
+    COL_ID,
+    COL_OFFSET,
+    COL_VA,
+    COL_SIZE,
+    COL_FLAG
+};
 
 // CelfdumpDlg dialog
 class CelfdumpDlg : public CDialogEx
@@ -35,11 +51,15 @@ public:
 	afx_msg void OnHelpAbout();
 	afx_msg void OnFileQuit();
 	afx_msg void OnFileOpen();
-
+	afx_msg void OnDestroy();
+	afx_msg void OnOprSelAll();
+	afx_msg void OnOprDeselAll();
+	afx_msg void OnOprDumpElf();
+	afx_msg void OnOprDumpBin();
+    
 	CColorListCtrl m_hdrList;
-	CString m_briefInfo;
-	CString m_binInfo;
 	CString m_filePath;
 	CStatusBarCtrl *m_pStatusBar;
-
+    corehdr_s      *m_elfhdr;
+	CString m_desc;
 };
