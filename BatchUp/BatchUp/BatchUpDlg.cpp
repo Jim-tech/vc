@@ -31,9 +31,9 @@ typedef enum
 typedef enum
 {
 	E_Init,
-	E_1stDone,
-	E_2ndDone,
-	E_Check
+	E_Upgrade,
+	E_Check,
+	E_Done
 }Upgrade_Fsm_E;
 
 typedef struct dhcphdr
@@ -56,6 +56,8 @@ typedef struct dhcphdr
 
 #define     MAX_RETRY            10
 #define     IPLIST_MAX_ITEM      256
+
+#define     WAIT_SECONDS         30
 
 bool 		 g_scanthread_quiting = FALSE;
 IPList_S	 g_astIPList[IPLIST_MAX_ITEM];
@@ -147,17 +149,25 @@ void Add2List(IPList_S *pstInfo)
 	switch(pstInfo->state)
 	{
 		case E_Init:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级当前区"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("准备升级"));
 			break;
+		case E_Upgrade:
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级..."));
+			break;						
+		#if  0
 		case E_1stDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级对区"));
 			break;
 		case E_2ndDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级检查"));
 			break;
+		#endif /* #if 0 */
 		case E_Check:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级完成"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级检查"));
 			break;
+		case E_Done:
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级完成"));
+			break;			
 		default:
 			break;
 	}
@@ -218,17 +228,25 @@ void UpdateProgress(DWORD ipaddr, CString strinfo)
 	switch(g_astIPList[node_index].state)
 	{
 		case E_Init:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级当前区"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("准备升级"));
 			break;
+		case E_Upgrade:
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级..."));
+			break;						
+		#if  0
 		case E_1stDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级对区"));
 			break;
 		case E_2ndDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级检查"));
 			break;
+		#endif /* #if 0 */
 		case E_Check:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级完成"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级检查"));
 			break;
+		case E_Done:
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级完成"));
+			break;						
 		default:
 			break;
 	}
@@ -293,7 +311,7 @@ UINT Thread_Check(LPVOID pParam)
 	dbgprint("enter");
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
-	if (pstIPInfo->state < E_2ndDone)
+	if (pstIPInfo->state < E_Upgrade)
 	{
 		dbgprint("!! unexpect state(%d) ip=0x%08x !!", pstIPInfo->state, ipaddr);
 
@@ -303,7 +321,22 @@ UINT Thread_Check(LPVOID pParam)
 		
 		return -1;
 	}
+	pstIPInfo->state = E_Check;
 	ReleaseMutex(g_hIPListMutex);
+
+	while (1)
+	{
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		int waittime = pstIPInfo->waittime;
+		ReleaseMutex(g_hIPListMutex);
+		
+		if (waittime > WAIT_SECONDS)
+		{
+			break;
+		}
+		
+		Sleep(1000);
+	}
 
 	int 	ret = 0;
 	int  	session = -1;
@@ -337,6 +370,9 @@ UINT Thread_Check(LPVOID pParam)
 		}		
 
 		dbgprint("get current version");
+
+		//上传点灯工具
+		bru_ssh_uploadfile(session, "ledctrl", "/tmp/ledctrl");
 		
 		UpdateProgress(ipaddr, _T("检查当前区"));
 
@@ -380,7 +416,7 @@ UINT Thread_Check(LPVOID pParam)
 		}
 
 		dbgprint("check version complete");
-		UpdateProgress(ipaddr, _T("升级成功"));
+		//UpdateProgress(ipaddr, _T("升级成功"));
 		break;
 	}
 
@@ -389,8 +425,10 @@ UINT Thread_Check(LPVOID pParam)
 	bru_ssh_logout(session);
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
+	pstIPInfo->state = E_Done;
 	pstIPInfo->runnning = FALSE;
 	ReleaseMutex(g_hIPListMutex);
+	UpdateProgress(ipaddr, _T("升级成功"));
 	
 	if (0 == ret)
 	{
@@ -423,7 +461,7 @@ UINT Thread_Update(LPVOID pParam)
 	dbgprint("enter");
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
-	if (pstIPInfo->state >= E_2ndDone)
+	if (pstIPInfo->state >= E_Upgrade)
 	{
 		dbgprint("!! unexpect state(%d) ip=0x%08x !!", pstIPInfo->state, ipaddr);
 
@@ -433,7 +471,22 @@ UINT Thread_Update(LPVOID pParam)
 		
 		return -1;
 	}
+	pstIPInfo->state = E_Upgrade;
 	ReleaseMutex(g_hIPListMutex);
+
+	while (1)
+	{
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		int waittime = pstIPInfo->waittime;
+		ReleaseMutex(g_hIPListMutex);
+		
+		if (waittime > WAIT_SECONDS)
+		{
+			break;
+		}
+		
+		Sleep(1000);
+	}
 	
 	int 	ret = 0;
 	int  	session = -1;
@@ -509,14 +562,27 @@ UINT Thread_Update(LPVOID pParam)
 			continue;
 		}
 
-		dbgprint("upgrade software");
+		dbgprint("upgrade easyupgrade");
+
+		/*上传升级工具  */
+		ret = bru_ssh_uploadfile(session, "easyupgrade", "/tmp/easyupgrade");
+		if (0 != ret)
+		{
+			dbgprint("upload easyupgrade fail, ip=0x%08x, ret=%d", ipaddr, ret);
+			UpdateProgress(ipaddr, _T("传输失败"));
+			bru_ssh_logout(session);
+			continue;
+		}
+
+		//上传点灯工具
+		bru_ssh_uploadfile(session, "ledctrl", "/tmp/ledctrl");
 
 		/*升级  */
 		UpdateProgress(ipaddr, _T("升级中"));
 		ret = bru_ssh_upgrade(session);
 		if (0 != ret)
 		{
-			dbgprint("upgrade area0 fail, ip=0x%08x, ret=%d", ipaddr, ret);
+			dbgprint("upgrade fail, ip=0x%08x, ret=%d", ipaddr, ret);
 			UpdateProgress(ipaddr, _T("升级失败"));
 			bru_ssh_logout(session);
 			ret = -1;
@@ -533,6 +599,7 @@ UINT Thread_Update(LPVOID pParam)
 	if (0 == ret)
 	{
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		#if  0
 		if (pstIPInfo->state < E_1stDone)
 		{
 			pstIPInfo->state = E_1stDone;
@@ -541,6 +608,7 @@ UINT Thread_Update(LPVOID pParam)
 		{
 			pstIPInfo->state = E_2ndDone;
 		}
+		#endif /* #if 0 */
 		ReleaseMutex(g_hIPListMutex);
 
 		bru_ssh_reboot(session);
@@ -594,6 +662,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 	bool          vendor_matched = FALSE;
 	DWORD         ipaddr = 0xFFFFFFFF;
 	unsigned char szmac[6] = {0xFF};
+	unsigned char defszmac[6] = {0x00, 0x15, 0x17, 0x14, 0xC6, 0x04};
 	
 	int offset = sizeof(DhcpHdr_S) + sizeof(unsigned int);
 	while ((szpkt[offset] != 255) && (offset + 2 < pktlen))  /* 2表示tlv字段的type和len  */
@@ -620,6 +689,11 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			if (7 == v_len && 1 == szpkt[offset + 2])
 			{
 				memcpy(szmac, &szpkt[offset + 3], sizeof(szmac));
+
+				if (0 == memcmp(defszmac, szmac, sizeof(szmac)))
+				{
+					return;
+				}
 			}
 		}			
 
@@ -658,11 +732,11 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		return;
 	}
 
-	#if  0
-	if (0xAc1001C2 != ipaddr)
+	#if  1
+	if (0xAc10018B != ipaddr)
 	{
 		dbgprint("!!not allowed ipaddr!!");
-		continue;
+		return;
 	}
 	#endif /* #if 0 */
 
@@ -685,8 +759,17 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			continue;
 		}
 
+		//如果mac冲突，用新的覆盖就的
+		if (0 == memcmp(g_astIPList[i].macaddr, szmac, 6))
+		{
+			g_astIPList[i].ipaddr = ipaddr;
+			g_astIPList[i].waittime = 0;
+			break;
+		}
+		
 		if (ipaddr == g_astIPList[i].ipaddr)
 		{
+			g_astIPList[i].waittime = 0;
 			break;
 		}
 	}
@@ -710,6 +793,10 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		else
 		{
 			dbgprint("invalid state, ip=0x%08x, state=%d ", ipaddr, g_astIPList[i].state);
+			memset(&(g_astIPList[i]), 0, sizeof(IPList_S));
+			g_astIPList[i].state = E_Init;
+			g_astIPList[i].runnning = FALSE;
+			
 			ReleaseMutex(g_hIPListMutex);
 			return;
 		}
@@ -722,24 +809,28 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			if (TRUE != g_astIPList[i].used)
 			{
 				g_astIPList[i].ipaddr = ipaddr;
+				memcpy(g_astIPList[i].macaddr, szmac, 6);
 				g_astIPList[i].state = E_Init;
+				g_astIPList[i].waittime = 0;
 				g_astIPList[i].runnning = TRUE;
 				g_astIPList[i].used = TRUE;
 				break;
 			}
 		}
 
-		dbgprint("new dut start, ip=0x%08x, state=%d ");
+		dbgprint("new dut start, ip=0x%08x, state=%d ", ipaddr, g_astIPList[i].state);
 	}
 
 
 	if (i < IPLIST_MAX_ITEM)
 	{
-		if (g_astIPList[i].state < E_2ndDone)
+		if (g_astIPList[i].state < E_Upgrade)
 		{
 			if (NULL == AfxBeginThread(Thread_Update, &g_astIPList[i]))
 			{
 				dbgprint("update fail");
+				memset(&(g_astIPList[i]), 0, sizeof(IPList_S));
+				g_astIPList[i].state = E_Init;
 				g_astIPList[i].runnning = FALSE;
 			}
 		}
@@ -748,6 +839,8 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			if (NULL == AfxBeginThread(Thread_Check, &g_astIPList[i]))
 			{
 				dbgprint("check fail");
+				memset(&(g_astIPList[i]), 0, sizeof(IPList_S));
+				g_astIPList[i].state = E_Init;
 				g_astIPList[i].runnning = FALSE;
 			}
 		}
@@ -760,7 +853,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 /* 
  * 监听dhcp request报文，从中提取IP地址
  */
-UINT Thread_Scan(LPVOID pParam)
+UINT Thread_Snooping(LPVOID pParam)
 {
 	{
 		int sel_index = g_pstDlgPtr->m_netcardCtrl.GetCurSel();	
@@ -846,240 +939,8 @@ UINT Thread_Scan(LPVOID pParam)
 		g_pd = NULL;
 	}
 
-
-	
-	#if  0
-	int sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
-	if (sockfd < 0) 
-	{ 
-		g_pstDlgPtr->MessageBox(_T("创建监听socket失败"));
-		return -1; 
-	}
-
-	unsigned long nonblock = 1;
-	ioctlsocket(sockfd, FIONBIO, &nonblock);
-
-	bool opt = TRUE;
-	setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,(const char*)&opt,sizeof(opt));
-
-	SOCKADDR_IN		servaddr;
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(67);
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(sockfd, (SOCKADDR *)&servaddr, sizeof(servaddr)) == SOCKET_ERROR)
-	{
-		closesocket(sockfd);
-		g_pstDlgPtr->MessageBox(_T("绑定监听socket失败"));
-		return -1;
-	}
-
-	dbgprint("thread running");
-	while (1)
-	{
-		if (g_scanthread_quiting)
-		{
-			break;
-		}
-
-		fd_set fds;
-		struct timeval tv;
-		FD_ZERO(&fds);
-		FD_SET(sockfd, &fds);
-		
-		tv.tv_sec =  1;
-		tv.tv_usec = 0;
-		if (select(sockfd + 1, &fds, NULL, NULL, &tv) < 0) 
-		{
-			dbgprint("select fail");
-			break;
-		}
-		
-		if (!FD_ISSET(sockfd, &fds))
-		{
-			Sleep(10);
-			continue;
-		}
-		
-		int           pktlen = 0;
-		char		  szpkt[2048] = {0};
-
-		pktlen = recv(sockfd, szpkt, sizeof(szpkt), 0);
-		if (pktlen <= 0)
-		{
-			dbgprint("pktlen=%d", pktlen);
-			continue;
-		}
-
-		DhcpHdr_S *pdhcphdr = (DhcpHdr_S *)szpkt;
-		if (1 != pdhcphdr->op)  /*request  */
-		{
-			continue;
-		}
-
-		if (pktlen < sizeof(DhcpHdr_S) + sizeof(unsigned int))
-		{
-			continue;
-		}
-		
-		//mgic cookie
-		unsigned int magiccookie = *(unsigned int *)(szpkt + sizeof(DhcpHdr_S));
-		magiccookie = htonl(magiccookie);
-		if (0x63825363 != magiccookie)
-		{
-			dbgprint("invliad magic cookie");
-			continue;
-		}
-
-		unsigned char dhcp_msg_type = 255;
-		bool          vendor_matched = FALSE;
-		DWORD         ipaddr = 0xFFFFFFFF;
-		unsigned char szmac[6] = {0xFF};
-		
-		int offset = sizeof(DhcpHdr_S) + sizeof(unsigned int);
-		while ((szpkt[offset] != 255) && (offset + 2 < pktlen))  /* 2表示tlv字段的type和len  */
-		{
-			unsigned char v_type = szpkt[offset];
-			unsigned char v_len = szpkt[offset + 1];
-
-			if (offset + 2 + v_len > pktlen)
-			{
-				dbgprint("invliad dhcp msg");
-				break;
-			}
-			
-			if (53 == v_type) /* dhcp msg type  */
-			{
-				if (1 == v_len)
-				{
-					dhcp_msg_type = szpkt[offset + 2];
-				}
-			}
-
-			if (61 == v_type) /* client identifier  */
-			{
-				if (7 == v_len && 1 == szpkt[offset + 2])
-				{
-					memcpy(szmac, &szpkt[offset + 3], sizeof(szmac));
-				}
-			}			
-
-			if (50 == v_type) /* request ip  */
-			{
-				if (4 == v_len)
-				{
-					ipaddr = *(DWORD *)&szpkt[offset + 2];
-					ipaddr = htonl(ipaddr);
-				}
-			}			
-
-			if (60 == v_type) /* vendor class identifier  */
-			{
-				if (v_len == strlen("udhcp 1.18.5"))
-				{
-					if (0 == memcmp("udhcp 1.18.5", &szpkt[offset + 2], v_len))
-					{
-						vendor_matched = TRUE;
-					}
-				}
-			}
-
-			
-			offset += 2;
-			offset += v_len;
-			if (szpkt[offset] == 255)
-			{
-				dbgprint("dhcp option end");
-				break;
-			}
-		}
-
-		if (TRUE != vendor_matched || 3 != dhcp_msg_type) /*dhcp request  */
-		{
-			continue;
-		}
-
-		#if  0
-		if (0xAc1001C2 != ipaddr)
-		{
-			dbgprint("!!not allowed ipaddr!!");
-			continue;
-		}
-		#endif /* #if 0 */
-
-		dbgprint("ip=%d.%d.%d.%d mac=[%02X:%02X:%02X:%02X:%02X:%02X]",   (ipaddr >> 24) & 0xFF,
-																		  (ipaddr >> 16) & 0xFF,
-																		  (ipaddr >> 8) & 0xFF,
-																		  ipaddr & 0xFF,
-																		  szmac[0], szmac[1], szmac[2],
-																		  szmac[3], szmac[4], szmac[5]);
-
-		int i = 0;
-		
-		//查看是否是重复的IP
-		for (i = 0; i < IPLIST_MAX_ITEM; i++)
-		{
-			if (TRUE != g_astIPList[i].used)
-			{
-				continue;
-			}
-
-			if (ipaddr == g_astIPList[i].ipaddr)
-			{
-				break;
-			}
-		}
-
-		if (i < IPLIST_MAX_ITEM)
-		{
-			if (E_Init <= g_astIPList[i].state && g_astIPList[i].state <= E_Check)
-			{
-				//do nothing
-			}
-			else
-			{
-				dbgprint("invalid state, ip=0x%08x, state=%d ", ipaddr, g_astIPList[i].state);
-				continue;
-			}
-		}
-		else //new
-		{
-			/*将搜索到的IP添加到队列  */
-			for (i = 0; i < IPLIST_MAX_ITEM; i++)
-			{
-				if (TRUE != g_astIPList[i].used)
-				{
-					g_astIPList[i].ipaddr = ipaddr;
-					g_astIPList[i].state = E_Init;
-					g_astIPList[i].used = TRUE;
-					break;
-				}
-			}			
-		}
-
-
-		if (i < IPLIST_MAX_ITEM)
-		{
-			if (g_astIPList[i].state < E_2ndDone)
-			{
-				if (NULL == AfxBeginThread(Thread_Update, &g_astIPList[i]))
-				{
-					dbgprint("update fail");
-				}
-			}
-			else
-			{
-				if (NULL == AfxBeginThread(Thread_Check, &g_astIPList[i]))
-				{
-					dbgprint("check fail");
-				}
-			}
-		}
-	}
-	#endif /* #if 0 */
-
 	dbgprint("thread quitting");
 	g_scanthread_quiting = FALSE;
-	//closesocket(sockfd);
 	return 0;
 }
 
@@ -1486,7 +1347,7 @@ void CBatchUpDlg::OnBnClickedButtonStart()
 		goto Quit_On_Fail;
 	}
 
-	m_pScanThread = AfxBeginThread(Thread_Scan, NULL);
+	m_pScanThread = AfxBeginThread(Thread_Snooping, NULL);
 	if (NULL == m_pScanThread)
 	{
 		MessageBox(_T("启动IP监听进程出错"));
@@ -1571,6 +1432,18 @@ void CBatchUpDlg::OnTimer(UINT nIDEvent)
 	switch(nIDEvent)
 	{
 		case UPDATE_UI_TIMER:
+			WaitForSingleObject(g_hIPListMutex,INFINITE);
+			for (int i = 0; i < IPLIST_MAX_ITEM; i++)
+			{
+				if (TRUE != g_astIPList[i].used)
+				{
+					continue;
+				}
+				
+				g_astIPList[i].waittime++;
+			}
+			ReleaseMutex(g_hIPListMutex);
+			
 			UpdateData(FALSE);
 			break;
 

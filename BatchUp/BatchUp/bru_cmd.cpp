@@ -73,7 +73,9 @@ int bru_ssh_login(DWORD ipaddr, int *psession)
 	Sleep(1000);
 
 	ssh_executecmd(session, "mkdir -p /tmp/__backfs", sz_resp, sizeof(sz_resp), 500);
-
+	ssh_executecmd(session, "cp -rf /bin/busybox /tmp/", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "cp -rf /usr/bin/pgrep /tmp/", sz_resp, sizeof(sz_resp), 1000);
+	
 	#if  0	
 	/*¿½±´Ò»Ð©ÃüÁî  */
 	ssh_executecmd(session, "cp -rf /usr/sbin/ru_cmd /tmp/", sz_resp, sizeof(sz_resp), 1000);
@@ -98,6 +100,7 @@ int bru_ssh_uploadfile(int session, char *psrc, char *pdst)
 	return ssh_putfile(session, psrc, pdst, 120*1000);
 }
 
+#if  0
 int bru_ssh_upgrade(int session)
 {
 	int   ret = 0;
@@ -191,6 +194,110 @@ int bru_ssh_upgrade(int session)
 	
 	return ret;
 }
+#else
+int bru_ssh_upgrade(int session)
+{
+	int   ret = 0;
+	char  sz_req[1024] = {0};
+	char  sz_resp[1024] = {0};
+
+	ssh_executecmd(session, "/tmp/pgrep phytest | /tmp/busybox xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/pgrep lte_testmac | /tmp/busybox xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(1000);
+
+	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/easyupgrade", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	
+	sprintf_s(sz_req, "/tmp/easyupgrade /tmp/firmware.img raw > /tmp/updatelog 2>&1 & \r\n");
+	ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
+	if (0 != ret)
+	{
+		dbgprint("upgrade fail, ret=%d", ret);
+		return ret;
+	}
+
+	ssh_executecmd(session, "/tmp/ledctrl 300000 &", sz_resp, sizeof(sz_resp), 1000);
+
+	Sleep(5000);
+
+	int seconds = 0;
+	int cnt = 0;
+	while (1)
+	{
+		Sleep(1000);
+		seconds += 1;
+		if (seconds > 300)
+		{
+			ret = -1;
+			dbgprint("upgrade fail ret=%d", ret);
+			break;
+		}
+
+		ret = ssh_executecmd(session, "/tmp/pgrep easyupgrade", sz_resp, sizeof(sz_resp), 2000);
+		if (0 != ret)
+		{
+			dbgprint("pgrep fail ret=%d", ret);
+			continue;
+		}
+
+		int  pid = -1;
+		char szpid[32] = {0};
+		sscanf_s(sz_resp, "%s", szpid, sizeof(szpid));
+		if ((1 == sscanf_s(szpid, "%d", &pid)) && (pid > 0))
+		{
+			dbgprint("upgrade is running");
+			cnt = 0;
+			continue;
+		}
+
+		cnt++;
+		if (cnt < 5)
+		{
+			dbgprint("upgrade complete, check time = %d", cnt);
+			Sleep(1000);
+			continue;
+		}
+
+		break;
+	}
+
+	Sleep(2000);
+
+	cnt = 0;
+	memset(sz_resp, 0, sizeof(sz_resp));
+	while ((strlen(sz_resp) == 0) && cnt < 10)
+	{
+		Sleep(1000);
+		
+		cnt++;
+		sprintf_s(sz_req, "/tmp/busybox tail -n 10 /tmp/updatelog | /tmp/busybox grep '****upgrade successfully!****'");
+		ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
+		if (0 != ret)
+		{
+			dbgprint("get upgrade log fail ret=%d", ret);
+			continue;
+		}
+	}
+
+	if (NULL != strstr(sz_resp, "upgrade successfully!"))
+	{
+		ret = 0;
+		dbgprint("upgrade ok ret=%d", ret);
+		
+	}
+	else
+	{
+		ret = -1;
+		dbgprint("upgrade fail ret=%d", ret);
+	}	
+
+	return ret;
+}
+
+#endif /* #if 0 */
 
 int bru_ssh_get_sn(int session, char *sn, int maxlen)
 {
@@ -360,13 +467,17 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 
 	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+
+	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/ledctrl 1000000 &", sz_resp, sizeof(sz_resp), 1000);
 	return 0;	
 }
 
 void bru_ssh_reboot(int session)
 {
 	char  sz_resp[1024] = {0};
-	ssh_executecmd(session, "reboot", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "/tmp/busybox reboot", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(2000);
 
 	return;	

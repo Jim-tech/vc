@@ -5,10 +5,12 @@
 typedef struct iplist
 {
 	DWORD               ipaddr;
+    char                macaddr[6];
 	char                szsn[19+1];
 	char                szmac[12+1];
     char                szversion[128+1];
     int                 state;
+    int                 waittime;
 	bool                runnning;
 	bool                used;
 }IPList_S;

@@ -411,7 +411,15 @@ int ssh_session_putfile(int sock, LIBSSH2_SESSION *session, char *pInput)
     } while (1);
 	timecost = (int)time(NULL) - start;
 	dbgprint("");
-	dbgprint("(%s) upload done, speed %d B/s", pSrc, len/timecost);
+
+	if (0 != timecost)
+	{
+		dbgprint("(%s) upload done, speed %d B/s", pSrc, len/timecost);
+	}
+	else
+	{
+		dbgprint("(%s) upload done", pSrc);
+	}
 
     libssh2_channel_send_eof(channel);
     libssh2_channel_wait_eof(channel);

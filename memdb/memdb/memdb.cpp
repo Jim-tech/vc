@@ -131,8 +131,8 @@ int memdb_export(char *filename, char *dirname)
 					}
 					else
 					{
-						fprintf(fp, "start,step,count\n");
-						fprintf(fp, "%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt);
+						fprintf(fp, "start,step,count,base\n");
+						fprintf(fp, "%d,%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt, sttableval.value_base);
 						fprintf(fp, "key,value\n");
 
 						cal_delta_s *pdata = (cal_delta_s *)(sttableval.data);
@@ -269,8 +269,8 @@ int memdb_import(char *dirname, char *filename)
 					fgets(szline, sizeof(szline), fp);
 					row++;
 
-					int value[3] = {0};
-					if (3 != sscanf_s(szline, "%d,%d,%d", &value[0], &value[1], &value[2]))
+					int value[4] = {0};
+					if (4 != sscanf_s(szline, "%d,%d,%d,%d", &value[0], &value[1], &value[2], &value[3]))
 					{
 						dbgprint("parse table(%s) fail, row=%d", g_tablename[tableid], row);
 						fclose(fp);
@@ -279,6 +279,7 @@ int memdb_import(char *dirname, char *filename)
 					sttableval.cal_start = value[0];
 					sttableval.cal_step = (s16)value[1];
 					sttableval.recordcnt = (u8)value[2];
+					sttableval.value_base = (s16)value[3];
 					sttableval.recordlen = sizeof(cal_delta_s);
 					sttableval.version = CAL_TBL_VER;
 
