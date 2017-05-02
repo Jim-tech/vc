@@ -732,7 +732,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		return;
 	}
 
-	#if  1
+	#if  0
 	if (0xAc10018B != ipaddr)
 	{
 		dbgprint("!!not allowed ipaddr!!");
