@@ -1,6 +1,2 @@
----- E_1stDone Matches (5 in 1 files) ----
-BatchUpDlg.cpp (BatchUp):	E_1stDone,
-BatchUpDlg.cpp (BatchUp):		case E_1stDone:
-BatchUpDlg.cpp (BatchUp):		case E_1stDone:
-BatchUpDlg.cpp (BatchUp):		if (pstIPInfo->state < E_1stDone)
-BatchUpDlg.cpp (BatchUp):			pstIPInfo->state = E_1stDone;
+---- g_IPCheckthread_quiting Matches (1 in 1 files) ----
+BatchUpDlg.cpp (BatchUp):bool 		 g_IPCheckthread_quiting = FALSE;

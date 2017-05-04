@@ -57,7 +57,7 @@ typedef struct dhcphdr
 #define     MAX_RETRY            10
 #define     IPLIST_MAX_ITEM      256
 
-#define     WAIT_SECONDS         30
+#define     WAIT_SECONDS         20
 
 bool 		 g_scanthread_quiting = FALSE;
 IPList_S	 g_astIPList[IPLIST_MAX_ITEM];
@@ -224,6 +224,12 @@ void UpdateProgress(DWORD ipaddr, CString strinfo)
 		return;
 	}
 
+	if (TRUE != g_astIPList[node_index].connectted)
+	{
+		ReleaseMutex(g_hListCtrlMutex);
+		return;
+	}
+	
 	//state
 	switch(g_astIPList[node_index].state)
 	{
@@ -354,9 +360,13 @@ UINT Thread_Check(LPVOID pParam)
 		if (0 != ret)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
-			bru_ssh_logout(session);
+			//bru_ssh_logout(session);
 			continue;
 		}
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->connectted = TRUE;
+		ReleaseMutex(g_hIPListMutex);
 
 		dbgprint("get bootm");
 		
@@ -472,6 +482,9 @@ UINT Thread_Update(LPVOID pParam)
 		return -1;
 	}
 	pstIPInfo->state = E_Upgrade;
+	dbgprint("mac=%02X%02X%02X%02X%02X%02X", pstIPInfo->macaddr[0], pstIPInfo->macaddr[1], pstIPInfo->macaddr[2], 
+		                                     pstIPInfo->macaddr[3], pstIPInfo->macaddr[4], pstIPInfo->macaddr[5]);
+	
 	ReleaseMutex(g_hIPListMutex);
 
 	while (1)
@@ -504,9 +517,13 @@ UINT Thread_Update(LPVOID pParam)
 		if (0 != ret)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
-			bru_ssh_logout(session);
+			//bru_ssh_logout(session);
 			continue;
 		}
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->connectted = TRUE;
+		ReleaseMutex(g_hIPListMutex);
 
 		dbgprint("get dut info");
 		
@@ -524,6 +541,18 @@ UINT Thread_Update(LPVOID pParam)
 			continue;
 		}
 
+		char *pblankmac = "FFFFFFFFFFFF";
+		dbgprint("szmac=[%s]", szmac);
+		if (0 == strcmp(szmac, pblankmac))
+		{
+			dbgprint("!!set mac address!!");
+			ret = bru_ssh_set_macaddr(session, pstIPInfo->macaddr);
+			if (0 != ret)
+			{
+				dbgprint("set macaddr fail, ret=%d", ret);
+			}
+		}
+		
 		dbgprint("get dut version");
 		
 		char szversion[128] = {0};
@@ -615,7 +644,15 @@ UINT Thread_Update(LPVOID pParam)
 	}
 	else
 	{
-		UpdateResult(ipaddr, FALSE);
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		bool connect = pstIPInfo->connectted;
+		ReleaseMutex(g_hIPListMutex);
+
+		if (TRUE == connect)
+		{
+			UpdateResult(ipaddr, FALSE);
+		}
+		
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
 		pstIPInfo->used = FALSE;
 		ReleaseMutex(g_hIPListMutex);
@@ -764,12 +801,14 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		{
 			g_astIPList[i].ipaddr = ipaddr;
 			g_astIPList[i].waittime = 0;
+			g_astIPList[i].connectted = FALSE;
 			break;
 		}
 		
 		if (ipaddr == g_astIPList[i].ipaddr)
 		{
 			g_astIPList[i].waittime = 0;
+			g_astIPList[i].connectted = FALSE;
 			break;
 		}
 	}
@@ -814,6 +853,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 				g_astIPList[i].waittime = 0;
 				g_astIPList[i].runnning = TRUE;
 				g_astIPList[i].used = TRUE;
+				g_astIPList[i].connectted = FALSE;
 				break;
 			}
 		}
@@ -943,7 +983,6 @@ UINT Thread_Snooping(LPVOID pParam)
 	g_scanthread_quiting = FALSE;
 	return 0;
 }
-
 
 // CAboutDlg dialog used for App About
 
@@ -1354,7 +1393,6 @@ void CBatchUpDlg::OnBnClickedButtonStart()
 		goto Quit_On_Fail;
 	}
 
-
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(TRUE);
 
@@ -1371,7 +1409,7 @@ Quit_On_Fail:
 		Sleep(10);
 		m_pScanThread = NULL;
 	}
-	
+
 Quit_On_OK:
 	return;
 }
@@ -1392,7 +1430,7 @@ void CBatchUpDlg::OnBnClickedButtonStop()
 	}
 	Sleep(10);
 	m_pScanThread = NULL;
-	
+
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 }

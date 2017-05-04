@@ -5,7 +5,7 @@
 typedef struct iplist
 {
 	DWORD               ipaddr;
-    char                macaddr[6];
+    unsigned char       macaddr[6];
 	char                szsn[19+1];
 	char                szmac[12+1];
     char                szversion[128+1];
@@ -13,6 +13,7 @@ typedef struct iplist
     int                 waittime;
 	bool                runnning;
 	bool                used;
+	bool                connectted;
 }IPList_S;
 
 
@@ -26,6 +27,7 @@ extern int bru_ssh_get_curr_version(int session, int bootm, char *version, int m
 extern int bru_ssh_upgrade(int session);
 extern int bru_ssh_checkback(int session, int bootm, char *version);
 extern void bru_ssh_reboot(int session);
+extern int bru_ssh_set_macaddr(int session, unsigned char macaddr[6]);
 
 
 

@@ -273,7 +273,7 @@ int bru_ssh_upgrade(int session)
 		Sleep(1000);
 		
 		cnt++;
-		sprintf_s(sz_req, "/tmp/busybox tail -n 10 /tmp/updatelog | /tmp/busybox grep '****upgrade successfully!****'");
+		sprintf_s(sz_req, "/tmp/busybox tail -n 10 /tmp/updatelog | /tmp/busybox grep 'upgrade successfully'");
 		ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
 		if (0 != ret)
 		{
@@ -351,6 +351,24 @@ int bru_ssh_get_bootm(int session, int *p_bootm)
 	*p_bootm = strtoul(szbootm, 0, 0);
 	dbgprint("*p_bootm=[0x%08X]", *p_bootm);
 	return 0;	
+}
+
+int bru_ssh_set_macaddr(int session, unsigned char macaddr[6])
+{
+	int   ret = 0;
+	char  sz_cmd[256] = {0};
+	char  sz_resp[256] = {0};
+	
+	sprintf_s(sz_cmd, sizeof(sz_cmd)-1, "eeprom-tools -t mac -w %02X%02X%02X%02X%02X%02X", macaddr[0], macaddr[1], macaddr[2], 
+		                                                                                   macaddr[3], macaddr[4], macaddr[5]);
+	ret = ssh_executecmd(session, sz_cmd, sz_resp, sizeof(sz_resp), 2000);
+	if (0 != ret)
+	{
+		dbgprint("set macaddr fail ret=%d", ret);
+		return ret;
+	}
+
+	return 0;		
 }
 
 int bru_ssh_get_curr_version(int session, int bootm, char *version, int maxlen)
