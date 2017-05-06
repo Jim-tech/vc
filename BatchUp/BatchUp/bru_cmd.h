@@ -28,6 +28,7 @@ extern int bru_ssh_upgrade(int session);
 extern int bru_ssh_checkback(int session, int bootm, char *version);
 extern void bru_ssh_reboot(int session);
 extern int bru_ssh_set_macaddr(int session, unsigned char macaddr[6]);
+extern void bru_ssh_complete(int session);
 
 
 

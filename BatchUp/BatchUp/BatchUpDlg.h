@@ -46,4 +46,6 @@ public:
 	CColorListCtrl  m_listCtrl;
     CComboBox       m_netcardCtrl;
 	CWinThread     *m_pScanThread;
+	BOOL m_doublearea;
+	afx_msg void OnClickedCheck1();
 };

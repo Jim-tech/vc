@@ -31,7 +31,9 @@ typedef enum
 typedef enum
 {
 	E_Init,
-	E_Upgrade,
+	//E_Upgrade,
+	E_1stDone,
+	E_2ndDone,
 	E_Check,
 	E_Done
 }Upgrade_Fsm_E;
@@ -54,10 +56,10 @@ typedef struct dhcphdr
 	unsigned char       file[128];
 }DhcpHdr_S;
 
-#define     MAX_RETRY            10
+#define     MAX_RETRY            16
 #define     IPLIST_MAX_ITEM      256
 
-#define     WAIT_SECONDS         20
+#define     WAIT_SECONDS         5
 
 bool 		 g_scanthread_quiting = FALSE;
 IPList_S	 g_astIPList[IPLIST_MAX_ITEM];
@@ -149,12 +151,14 @@ void Add2List(IPList_S *pstInfo)
 	switch(pstInfo->state)
 	{
 		case E_Init:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("准备升级"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级当前区"));
 			break;
+		#if  0
 		case E_Upgrade:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级..."));
 			break;						
-		#if  0
+		#endif /* #if 0 */
+		#if  1
 		case E_1stDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级对区"));
 			break;
@@ -234,12 +238,14 @@ void UpdateProgress(DWORD ipaddr, CString strinfo)
 	switch(g_astIPList[node_index].state)
 	{
 		case E_Init:
-			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("准备升级"));
+			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级当前区"));
 			break;
+		#if  0
 		case E_Upgrade:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级..."));
 			break;						
-		#if  0
+		#endif /* #if 0 */
+		#if  1
 		case E_1stDone:
 			g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_STATE, _T("升级对区"));
 			break;
@@ -260,7 +266,6 @@ void UpdateProgress(DWORD ipaddr, CString strinfo)
 	//progress
 	g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_PROGRESS, strinfo);
 	g_pstDlgPtr->m_listCtrl.SetItemColor(item_index, RGB(0, 0, 0), RGB(0xff, 0xff, 0xff));
-
 	ReleaseMutex(g_hListCtrlMutex);
 }
 
@@ -317,7 +322,8 @@ UINT Thread_Check(LPVOID pParam)
 	dbgprint("enter");
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
-	if (pstIPInfo->state < E_Upgrade)
+	//if (pstIPInfo->state < E_Upgrade)
+	if (pstIPInfo->state < E_2ndDone)
 	{
 		dbgprint("!! unexpect state(%d) ip=0x%08x !!", pstIPInfo->state, ipaddr);
 
@@ -353,7 +359,7 @@ UINT Thread_Check(LPVOID pParam)
 		CString strlog;
 		strlog.Format(_T("尝试连接%d/%d"), retry, MAX_RETRY);
 		UpdateProgress(ipaddr, strlog);
-		Sleep(5000);
+		//Sleep(5000);
 
 		dbgprint("login");
 		ret = bru_ssh_login(ipaddr, &session);
@@ -361,6 +367,7 @@ UINT Thread_Check(LPVOID pParam)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
 			//bru_ssh_logout(session);
+			Sleep(2000);
 			continue;
 		}
 
@@ -409,21 +416,36 @@ UINT Thread_Check(LPVOID pParam)
 		{
 			UpdateProgress(ipaddr, _T("当前区版本与目标版本不一致"));
 			dbgprint("upgrade check fail, ip=0x%08x, ret=%d", ipaddr, ret);
+			dbgprint("szversion=[%s]", szversion);
+			dbgprint("sz_dstver=[%s]", sz_dstver);
 			ret = -1;
 			break;
 		}
 
+		#if  0
 		dbgprint("check backup version");
 		
-		UpdateProgress(ipaddr, _T("检查备区"));
-		ret = bru_ssh_checkback(session, bootm, sz_dstver);
-		if (0 != ret)
+		if (TRUE == g_pstDlgPtr->m_doublearea)
 		{
-			dbgprint("upgrade check fail, ip=0x%08x, ret=%d", ipaddr, ret);
-			UpdateProgress(ipaddr, _T("备区版本与目标版本不一致"));
-			ret = -1;
-			break;
+			UpdateProgress(ipaddr, _T("检查备区"));
+			ret = bru_ssh_checkback(session, bootm, sz_dstver);
+			if (0 != ret)
+			{
+				dbgprint("upgrade check fail, ip=0x%08x, ret=%d", ipaddr, ret);
+				UpdateProgress(ipaddr, _T("备区版本与目标版本不一致"));
+				ret = -1;
+				break;
+			}
 		}
+		else
+		{
+			bru_ssh_complete(session);
+			//ret = 0;
+		}
+		#else
+		bru_ssh_complete(session);
+		#endif /* #if 0 */
+
 
 		dbgprint("check version complete");
 		//UpdateProgress(ipaddr, _T("升级成功"));
@@ -438,14 +460,16 @@ UINT Thread_Check(LPVOID pParam)
 	pstIPInfo->state = E_Done;
 	pstIPInfo->runnning = FALSE;
 	ReleaseMutex(g_hIPListMutex);
-	UpdateProgress(ipaddr, _T("升级成功"));
+	
 	
 	if (0 == ret)
 	{
+		UpdateProgress(ipaddr, _T("升级成功"));
 		UpdateResult(ipaddr, TRUE);
 	}
 	else
 	{
+		UpdateProgress(ipaddr, _T("升级失败"));
 		UpdateResult(ipaddr, FALSE);
 	}
 
@@ -471,7 +495,8 @@ UINT Thread_Update(LPVOID pParam)
 	dbgprint("enter");
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
-	if (pstIPInfo->state >= E_Upgrade)
+	//if (pstIPInfo->state >= E_Upgrade)
+	if (pstIPInfo->state >= E_2ndDone)
 	{
 		dbgprint("!! unexpect state(%d) ip=0x%08x !!", pstIPInfo->state, ipaddr);
 
@@ -481,7 +506,7 @@ UINT Thread_Update(LPVOID pParam)
 		
 		return -1;
 	}
-	pstIPInfo->state = E_Upgrade;
+	//pstIPInfo->state = E_Upgrade;
 	dbgprint("mac=%02X%02X%02X%02X%02X%02X", pstIPInfo->macaddr[0], pstIPInfo->macaddr[1], pstIPInfo->macaddr[2], 
 		                                     pstIPInfo->macaddr[3], pstIPInfo->macaddr[4], pstIPInfo->macaddr[5]);
 	
@@ -510,7 +535,7 @@ UINT Thread_Update(LPVOID pParam)
 		CString strlog;
 		strlog.Format(_T("尝试连接%d/%d"), retry, MAX_RETRY);
 		UpdateProgress(ipaddr, strlog);
-		Sleep(5000);
+		//Sleep(5000);
 
 		dbgprint("login");
 		ret = bru_ssh_login(ipaddr, &session);
@@ -518,6 +543,7 @@ UINT Thread_Update(LPVOID pParam)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
 			//bru_ssh_logout(session);
+			Sleep(2000);
 			continue;
 		}
 
@@ -570,6 +596,22 @@ UINT Thread_Update(LPVOID pParam)
 		memcpy(pstIPInfo->szversion, szversion, sizeof(pstIPInfo->szversion)-1);
 		Add2List(pstIPInfo);
 		ReleaseMutex(g_hIPListMutex);
+
+		//检查当前区版本
+		if (pstIPInfo->state >= E_1stDone)
+		{
+			char sz_dstver[256] = {0};
+			utils_TChar2Char((TCHAR *)g_pstDlgPtr->m_ver.GetString(), sz_dstver, sizeof(sz_dstver));
+			if (NULL == strstr(szversion, sz_dstver))
+			{
+				UpdateProgress(ipaddr, _T("当前区版本与目标版本不一致"));
+				dbgprint("upgrade check fail, ip=0x%08x, ret=%d", ipaddr, ret);
+				dbgprint("szversion=[%s]", szversion);
+				dbgprint("sz_dstver=[%s]", sz_dstver);
+				ret = -1;
+				break;
+			}
+		}
 		
 		UpdateProgress(ipaddr, _T("上传软件"));
 
@@ -628,12 +670,19 @@ UINT Thread_Update(LPVOID pParam)
 	if (0 == ret)
 	{
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
-		#if  0
-		if (pstIPInfo->state < E_1stDone)
+		#if  1
+		if (TRUE == g_pstDlgPtr->m_doublearea)
 		{
-			pstIPInfo->state = E_1stDone;
+			if (pstIPInfo->state < E_1stDone)
+			{
+				pstIPInfo->state = E_1stDone;
+			}
+			else if (pstIPInfo->state < E_2ndDone)
+			{
+				pstIPInfo->state = E_2ndDone;
+			}
 		}
-		else if (pstIPInfo->state < E_2ndDone)
+		else
 		{
 			pstIPInfo->state = E_2ndDone;
 		}
@@ -864,7 +913,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 
 	if (i < IPLIST_MAX_ITEM)
 	{
-		if (g_astIPList[i].state < E_Upgrade)
+		if (g_astIPList[i].state < E_2ndDone)
 		{
 			if (NULL == AfxBeginThread(Thread_Update, &g_astIPList[i]))
 			{
@@ -935,7 +984,7 @@ UINT Thread_Snooping(LPVOID pParam)
 
 		
 		char ebuf[PCAP_ERRBUF_SIZE];
-		g_pd = pcap_open_live(ifname, 65535, 1, 1000, ebuf);
+		g_pd = pcap_open_live(ifname, 65535, 1, 100, ebuf);
 		if (!g_pd) 
 		{
 			dbgprint("pcap open fail, %s", ebuf);
@@ -1020,6 +1069,7 @@ END_MESSAGE_MAP()
 
 CBatchUpDlg::CBatchUpDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CBatchUpDlg::IDD, pParent)
+	, m_doublearea(TRUE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -1049,6 +1099,7 @@ void CBatchUpDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_SW, m_imgPath);
 	DDX_Text(pDX, IDC_EDIT_VER, m_ver);
 	DDX_Control(pDX, IDC_COMBO_NET, m_netcardCtrl);
+	DDX_Check(pDX, IDC_CHECK1, m_doublearea);
 }
 
 BEGIN_MESSAGE_MAP(CBatchUpDlg, CDialogEx)
@@ -1062,6 +1113,7 @@ BEGIN_MESSAGE_MAP(CBatchUpDlg, CDialogEx)
 	ON_WM_SIZE()
 	ON_WM_TIMER()
 	ON_WM_DESTROY()
+	ON_BN_CLICKED(IDC_CHECK1, &CBatchUpDlg::OnClickedCheck1)
 END_MESSAGE_MAP()
 
 
@@ -1252,7 +1304,10 @@ BOOL CBatchUpDlg::OnInitDialog()
 		MessageBox(_T("创建g_hIPListMutex互斥信号量失败"));
 	}
 
+	m_doublearea = TRUE;
+	
 	SetTimer(UPDATE_UI_TIMER, 1000, 0);
+
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -1366,6 +1421,8 @@ HCURSOR CBatchUpDlg::OnQueryDragIcon()
 void CBatchUpDlg::OnBnClickedButtonFile()
 {
 	// TODO: Add your control notification handler code here
+	UpdateData(TRUE);
+	
 	CFileDialog  dlg(true, _T(".IMG"), NULL, OFN_FILEMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR, _T("software image(*.IMG)|*.IMG|All Files(*.*)|*.*||"));
 	if (dlg.DoModal() == IDOK)
 	{
@@ -1409,8 +1466,11 @@ Quit_On_Fail:
 		Sleep(10);
 		m_pScanThread = NULL;
 	}
+	return;
 
 Quit_On_OK:
+
+	GetDlgItem(IDC_CHECK1)->EnableWindow(FALSE);
 	return;
 }
 
@@ -1433,6 +1493,7 @@ void CBatchUpDlg::OnBnClickedButtonStop()
 
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
+	GetDlgItem(IDC_CHECK1)->EnableWindow(TRUE);
 }
 
 void CBatchUpDlg::OnDestroy()
@@ -1481,7 +1542,8 @@ void CBatchUpDlg::OnTimer(UINT nIDEvent)
 				g_astIPList[i].waittime++;
 			}
 			ReleaseMutex(g_hIPListMutex);
-			
+
+			//UpdateData(TRUE);
 			UpdateData(FALSE);
 			break;
 
@@ -1491,3 +1553,11 @@ void CBatchUpDlg::OnTimer(UINT nIDEvent)
 }
 
 
+
+
+void CBatchUpDlg::OnClickedCheck1()
+{
+	// TODO: Add your control notification handler code here
+
+	UpdateData(TRUE);
+}

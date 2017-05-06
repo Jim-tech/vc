@@ -229,10 +229,10 @@ int bru_ssh_upgrade(int session)
 	{
 		Sleep(1000);
 		seconds += 1;
-		if (seconds > 300)
+		if (seconds > 180)
 		{
-			ret = -1;
-			dbgprint("upgrade fail ret=%d", ret);
+			//ret = -1;
+			//dbgprint("upgrade fail ret=%d", ret);
 			break;
 		}
 
@@ -490,6 +490,19 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 	Sleep(500);
 	ssh_executecmd(session, "/tmp/ledctrl 1000000 &", sz_resp, sizeof(sz_resp), 1000);
 	return 0;	
+}
+
+void bru_ssh_complete(int session)
+{
+	char  sz_resp[1024] = {0};
+	
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+
+	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/ledctrl 1000000 &", sz_resp, sizeof(sz_resp), 1000);
+	return;	
 }
 
 void bru_ssh_reboot(int session)
