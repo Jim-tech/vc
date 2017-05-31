@@ -38,6 +38,7 @@ typedef enum
 	E_Done
 }Upgrade_Fsm_E;
 
+#pragma pack(1)
 typedef struct dhcphdr
 {
 	unsigned char       op;
@@ -55,21 +56,64 @@ typedef struct dhcphdr
 	unsigned char       sname[64];
 	unsigned char       file[128];
 }DhcpHdr_S;
+#pragma pack()
 
 #define     MAX_RETRY            16
-#define     IPLIST_MAX_ITEM      256
+#define     IPLIST_MAX_ITEM      32
 
-#define     WAIT_SECONDS         5
+#define     WAIT_SECONDS         15
 
-bool 		 g_scanthread_quiting = FALSE;
+typedef struct iplist
+{
+	DWORD               ipaddr;
+    unsigned char       macaddr[6];
+	char                szsn[19+1];
+	char                szmac[12+1];
+    char                szversion[128+1];
+    int                 state;
+    int                 waittime;
+    int                 idletime;
+	bool                runnning;
+	bool                used;
+	CWinThread         *pThread;	
+}IPList_S;
+
+volatile bool g_scanthread_quiting = FALSE;
+volatile bool g_detectthread_quiting = FALSE;
 IPList_S	 g_astIPList[IPLIST_MAX_ITEM];
 CBatchUpDlg *g_pstDlgPtr = NULL;
 HANDLE       g_hListCtrlMutex = NULL;
 HANDLE       g_hIPListMutex = NULL;
 pcap_t*      g_pd = NULL;
+char         g_ifname[512] = {0};
+int          g_iplocal = -1;
+char         g_ifmac[6] = {0};
 
 #define      UPDATE_UI_TIMER  1
 
+#pragma pack(1)
+typedef struct
+{
+	unsigned char  dmac[6];
+	unsigned char  smac[6];
+	unsigned short ethtype;
+}ether_hdr_s;
+
+typedef struct
+{
+	ether_hdr_s    ethhdr;
+	unsigned short hwtype;
+	unsigned short proto;
+	unsigned char  hwsize;
+	unsigned char  protosize;
+	unsigned short opcode;
+	unsigned char  sendmac[6];
+	unsigned int   sendip;
+	unsigned char  targetmac[6];
+	unsigned int   targetip;
+	//unsigned char  szdata[22];
+}arp_pkt_s;
+#pragma pack()
 
 void utils_TChar2Char(TCHAR *pIn, char *pOut, int maxlen)
 {
@@ -177,7 +221,7 @@ void Add2List(IPList_S *pstInfo)
 	}
 
 	//progress
-	g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_PROGRESS, _T("准备升级"));
+	//g_pstDlgPtr->m_listCtrl.SetItemText(item_index, HD_PROGRESS, _T("准备升级"));
 	g_pstDlgPtr->m_listCtrl.SetItemColor(item_index, RGB(0, 0, 0), RGB(0xff, 0xff, 0xff));
 	
 	ReleaseMutex(g_hListCtrlMutex);
@@ -228,12 +272,6 @@ void UpdateProgress(DWORD ipaddr, CString strinfo)
 		return;
 	}
 
-	if (TRUE != g_astIPList[node_index].connectted)
-	{
-		ReleaseMutex(g_hListCtrlMutex);
-		return;
-	}
-	
 	//state
 	switch(g_astIPList[node_index].state)
 	{
@@ -329,6 +367,8 @@ UINT Thread_Check(LPVOID pParam)
 
 		pstIPInfo->used = FALSE;
 		pstIPInfo->runnning = FALSE;
+		pstIPInfo->pThread = NULL;
+		pstIPInfo->idletime = 0;
 		ReleaseMutex(g_hIPListMutex);
 		
 		return -1;
@@ -339,6 +379,7 @@ UINT Thread_Check(LPVOID pParam)
 	while (1)
 	{
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
 		int waittime = pstIPInfo->waittime;
 		ReleaseMutex(g_hIPListMutex);
 		
@@ -356,6 +397,10 @@ UINT Thread_Check(LPVOID pParam)
 
 	while (retry++ < MAX_RETRY && TRUE == retry_enable)
 	{
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
+		
 		CString strlog;
 		strlog.Format(_T("尝试连接%d/%d"), retry, MAX_RETRY);
 		UpdateProgress(ipaddr, strlog);
@@ -366,15 +411,12 @@ UINT Thread_Check(LPVOID pParam)
 		if (0 != ret)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
-			//bru_ssh_logout(session);
-			Sleep(2000);
+			bru_ssh_logout(session);
+			Sleep(3000);
 			continue;
 		}
 
-		WaitForSingleObject(g_hIPListMutex,INFINITE);
-		pstIPInfo->connectted = TRUE;
-		ReleaseMutex(g_hIPListMutex);
-
+		#if  1
 		dbgprint("get bootm");
 		
 		int  bootm = 0xFFFFFFFF;
@@ -385,8 +427,13 @@ UINT Thread_Check(LPVOID pParam)
 			bru_ssh_logout(session);
 			continue;
 		}		
+		#endif /* #if 0 */
 
 		dbgprint("get current version");
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 
 		//上传点灯工具
 		bru_ssh_uploadfile(session, "ledctrl", "/tmp/ledctrl");
@@ -422,7 +469,7 @@ UINT Thread_Check(LPVOID pParam)
 			break;
 		}
 
-		#if  0
+		#if  1
 		dbgprint("check backup version");
 		
 		if (TRUE == g_pstDlgPtr->m_doublearea)
@@ -449,19 +496,19 @@ UINT Thread_Check(LPVOID pParam)
 
 		dbgprint("check version complete");
 		//UpdateProgress(ipaddr, _T("升级成功"));
+		ret = 0;
 		break;
 	}
 
 	//bru_ssh_reboot(session);
 
-	bru_ssh_logout(session);
-
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
 	pstIPInfo->state = E_Done;
-	pstIPInfo->runnning = FALSE;
+	pstIPInfo->idletime = 0;
 	ReleaseMutex(g_hIPListMutex);
 	
-	
+	bru_ssh_logout(session);
+
 	if (0 == ret)
 	{
 		UpdateProgress(ipaddr, _T("升级成功"));
@@ -475,6 +522,10 @@ UINT Thread_Check(LPVOID pParam)
 
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
 	pstIPInfo->used = FALSE;
+	pstIPInfo->pThread = NULL;
+	pstIPInfo->idletime = 0;
+	pstIPInfo->runnning = FALSE;
+	pstIPInfo->idletime = 0;
 	ReleaseMutex(g_hIPListMutex);
 	
 	dbgprint("ip=0x%08x update finished, ret=%d", ipaddr, ret);
@@ -502,6 +553,8 @@ UINT Thread_Update(LPVOID pParam)
 
 		pstIPInfo->used = FALSE;
 		pstIPInfo->runnning = FALSE;
+		pstIPInfo->pThread = NULL;
+		pstIPInfo->idletime = 0;
 		ReleaseMutex(g_hIPListMutex);
 		
 		return -1;
@@ -515,6 +568,7 @@ UINT Thread_Update(LPVOID pParam)
 	while (1)
 	{
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
 		int waittime = pstIPInfo->waittime;
 		ReleaseMutex(g_hIPListMutex);
 		
@@ -532,6 +586,10 @@ UINT Thread_Update(LPVOID pParam)
 
 	while (retry++ < MAX_RETRY && TRUE == retry_enable)
 	{
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
+		
 		CString strlog;
 		strlog.Format(_T("尝试连接%d/%d"), retry, MAX_RETRY);
 		UpdateProgress(ipaddr, strlog);
@@ -542,13 +600,13 @@ UINT Thread_Update(LPVOID pParam)
 		if (0 != ret)
 		{
 			dbgprint("ssh login fail, ip=0x%08x, ret=%d", ipaddr, ret);
-			//bru_ssh_logout(session);
-			Sleep(2000);
+			bru_ssh_logout(session);
+			Sleep(3000);
 			continue;
 		}
 
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
-		pstIPInfo->connectted = TRUE;
+		pstIPInfo->idletime = 0;
 		ReleaseMutex(g_hIPListMutex);
 
 		dbgprint("get dut info");
@@ -556,16 +614,23 @@ UINT Thread_Update(LPVOID pParam)
 		/*获取软件信息*/
 		char szsn[64] = {0};
 		char szmac[64] = {0};
-		int  bootm = 0xFFFFFFFF;
+		
 		ret |= bru_ssh_get_sn(session, szsn, sizeof(szsn));
 		ret |= bru_ssh_get_mac(session, szmac, sizeof(szmac));
+		#if  0
+		int  bootm = 0xFFFFFFFF;
 		ret |= bru_ssh_get_bootm(session, &bootm);
+		#endif /* #if 0 */
 		if (0 != ret)
 		{
 			dbgprint("get info fail, ip=0x%08x, ret=%d", ipaddr, ret);
 			bru_ssh_logout(session);
 			continue;
 		}
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 
 		char *pblankmac = "FFFFFFFFFFFF";
 		dbgprint("szmac=[%s]", szmac);
@@ -597,6 +662,10 @@ UINT Thread_Update(LPVOID pParam)
 		Add2List(pstIPInfo);
 		ReleaseMutex(g_hIPListMutex);
 
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
+
 		//检查当前区版本
 		if (pstIPInfo->state >= E_1stDone)
 		{
@@ -612,6 +681,10 @@ UINT Thread_Update(LPVOID pParam)
 				break;
 			}
 		}
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 		
 		UpdateProgress(ipaddr, _T("上传软件"));
 
@@ -620,6 +693,10 @@ UINT Thread_Update(LPVOID pParam)
 		Sleep(2000);
 
 		dbgprint("upload software");
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 			
 		/*上传软件  */
 		char szimgfile[512] = {0};
@@ -633,8 +710,9 @@ UINT Thread_Update(LPVOID pParam)
 			continue;
 		}
 
-		dbgprint("upgrade easyupgrade");
+		//dbgprint("upgrade easyupgrade");
 
+		#if  0
 		/*上传升级工具  */
 		ret = bru_ssh_uploadfile(session, "easyupgrade", "/tmp/easyupgrade");
 		if (0 != ret)
@@ -644,25 +722,39 @@ UINT Thread_Update(LPVOID pParam)
 			bru_ssh_logout(session);
 			continue;
 		}
+		#endif /* #if 0 */
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 
 		//上传点灯工具
 		bru_ssh_uploadfile(session, "ledctrl", "/tmp/ledctrl");
 
+		bru_ssh_ledfastflash(session);
+		
 		/*升级  */
 		UpdateProgress(ipaddr, _T("升级中"));
 		ret = bru_ssh_upgrade(session);
 		if (0 != ret)
 		{
+			bru_ssh_led_slowflash(session);
 			dbgprint("upgrade fail, ip=0x%08x, ret=%d", ipaddr, ret);
 			UpdateProgress(ipaddr, _T("升级失败"));
+
 			bru_ssh_logout(session);
 			ret = -1;
 			break;
 		}
+
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		pstIPInfo->idletime = 0;
+		ReleaseMutex(g_hIPListMutex);
 		
 		UpdateProgress(ipaddr, _T("进入下一阶段"));
 		dbgprint("upgrade complete");
-		
+
+		ret = 0;
 		break;
 	}
 
@@ -693,25 +785,25 @@ UINT Thread_Update(LPVOID pParam)
 	}
 	else
 	{
-		WaitForSingleObject(g_hIPListMutex,INFINITE);
-		bool connect = pstIPInfo->connectted;
-		ReleaseMutex(g_hIPListMutex);
-
-		if (TRUE == connect)
-		{
-			UpdateResult(ipaddr, FALSE);
-		}
+		UpdateProgress(ipaddr, _T("升级失败"));
+		UpdateResult(ipaddr, FALSE);
 		
 		WaitForSingleObject(g_hIPListMutex,INFINITE);
 		pstIPInfo->used = FALSE;
+		pstIPInfo->pThread = NULL;
+		pstIPInfo->idletime = 0;
+		pstIPInfo->runnning = FALSE;
+		pstIPInfo->idletime = 0;
 		ReleaseMutex(g_hIPListMutex);
 	}
 
-	bru_ssh_logout(session);
-
 	WaitForSingleObject(g_hIPListMutex,INFINITE);
 	pstIPInfo->runnning = FALSE;
+	pstIPInfo->idletime = 0;
+	pstIPInfo->pThread = NULL;
 	ReleaseMutex(g_hIPListMutex);
+
+	bru_ssh_logout(session);
 
 	dbgprint("ip=0x%08x update finished, ret=%d", ipaddr, ret);
 	dbgprint("upgrade quit");
@@ -721,101 +813,152 @@ UINT Thread_Update(LPVOID pParam)
 
 void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
 {
-	unsigned char *szpkt = (unsigned char *)(pkt_data + 14 + 20 + 8);
-	int            pktlen = header->len - 14 - 20 - 8;
-
-	DhcpHdr_S *pdhcphdr = (DhcpHdr_S *)szpkt;
-	if (1 != pdhcphdr->op)  /*request  */
-	{
-		return;
-	}
-
-	if (pktlen < sizeof(DhcpHdr_S) + sizeof(unsigned int))
-	{
-		return;
-	}
-	
-	//mgic cookie
-	unsigned int magiccookie = *(unsigned int *)(szpkt + sizeof(DhcpHdr_S));
-	magiccookie = htonl(magiccookie);
-	if (0x63825363 != magiccookie)
-	{
-		dbgprint("invliad magic cookie");
-		return;
-	}
-
-	unsigned char dhcp_msg_type = 255;
-	bool          vendor_matched = FALSE;
 	DWORD         ipaddr = 0xFFFFFFFF;
 	unsigned char szmac[6] = {0xFF};
-	unsigned char defszmac[6] = {0x00, 0x15, 0x17, 0x14, 0xC6, 0x04};
-	
-	int offset = sizeof(DhcpHdr_S) + sizeof(unsigned int);
-	while ((szpkt[offset] != 255) && (offset + 2 < pktlen))  /* 2表示tlv字段的type和len  */
+
+	if ((0x08 == pkt_data[12]) && (0x06 == pkt_data[13]))
 	{
-		unsigned char v_type = szpkt[offset];
-		unsigned char v_len = szpkt[offset + 1];
+		arp_pkt_s *pkt = (arp_pkt_s *)pkt_data;
 
-		if (offset + 2 + v_len > pktlen)
+		//只处理reply
+		if ((2 != ntohs(pkt->opcode)) || (1 != ntohs(pkt->hwtype)) || (0x0800 != ntohs(pkt->proto)) || (6 != pkt->hwsize) || (4 != pkt->protosize))
 		{
-			dbgprint("invliad dhcp msg");
-			break;
+			//dbgprint("!!! arp drop !!!");
+			return;
 		}
+
+		ipaddr = ntohl(pkt->sendip);
+		memcpy(szmac, pkt->sendmac, 6);
 		
-		if (53 == v_type) /* dhcp msg type  */
+		#if  0
+		char ddddmac[] = {0x00, 0x10, 0x28, 0x73, 0x05, 0x06};
+		if (0 != memcmp(ddddmac, szmac, 6))
 		{
-			if (1 == v_len)
-			{
-				dhcp_msg_type = szpkt[offset + 2];
-			}
+			return;
 		}
+		#endif /* #if 0 */
 
-		if (61 == v_type) /* client identifier  */
+		//查看是否是重复的IP
+		WaitForSingleObject(g_hIPListMutex,INFINITE);
+		for (int i = 0; i < IPLIST_MAX_ITEM; i++)
 		{
-			if (7 == v_len && 1 == szpkt[offset + 2])
+			if (TRUE == g_astIPList[i].used)
 			{
-				memcpy(szmac, &szpkt[offset + 3], sizeof(szmac));
+				continue;
+			}
 
-				if (0 == memcmp(defszmac, szmac, sizeof(szmac)))
+			if (ipaddr == g_astIPList[i].ipaddr)
+			{
+				if (g_astIPList[i].state >= E_Done || g_astIPList[i].idletime < 15)
 				{
+					ReleaseMutex(g_hIPListMutex);
 					return;
 				}
 			}
-		}			
+		}
+		ReleaseMutex(g_hIPListMutex);
+		
+		dbgprint("!!! arp received !!!");
+		//return;
+	}
+	else if ((0x08 == pkt_data[12]) && (0x00 == pkt_data[13]))
+	{
+		unsigned char *szpkt = (unsigned char *)(pkt_data + 14 + 20 + 8);
+		int            pktlen = header->len - 14 - 20 - 8;
 
-		if (50 == v_type) /* request ip  */
+		DhcpHdr_S *pdhcphdr = (DhcpHdr_S *)szpkt;
+		if (1 != pdhcphdr->op)  /*request  */
 		{
-			if (4 == v_len)
+			return;
+		}
+
+		if (pktlen < sizeof(DhcpHdr_S) + sizeof(unsigned int))
+		{
+			return;
+		}
+		
+		//mgic cookie
+		unsigned int magiccookie = *(unsigned int *)(szpkt + sizeof(DhcpHdr_S));
+		magiccookie = htonl(magiccookie);
+		if (0x63825363 != magiccookie)
+		{
+			dbgprint("invliad magic cookie");
+			return;
+		}
+
+		unsigned char dhcp_msg_type = 255;
+		bool          vendor_matched = FALSE;
+		unsigned char defszmac[6] = {0x00, 0x15, 0x17, 0x14, 0xC6, 0x04};
+		
+		int offset = sizeof(DhcpHdr_S) + sizeof(unsigned int);
+		while ((szpkt[offset] != 255) && (offset + 2 < pktlen))  /* 2表示tlv字段的type和len  */
+		{
+			unsigned char v_type = szpkt[offset];
+			unsigned char v_len = szpkt[offset + 1];
+
+			if (offset + 2 + v_len > pktlen)
 			{
-				ipaddr = *(DWORD *)&szpkt[offset + 2];
-				ipaddr = htonl(ipaddr);
+				dbgprint("invliad dhcp msg");
+				break;
 			}
-		}			
-
-		if (60 == v_type) /* vendor class identifier  */
-		{
-			if (v_len == strlen("udhcp 1.18.5"))
+			
+			if (53 == v_type) /* dhcp msg type  */
 			{
-				if (0 == memcmp("udhcp 1.18.5", &szpkt[offset + 2], v_len))
+				if (1 == v_len)
 				{
-					vendor_matched = TRUE;
+					dhcp_msg_type = szpkt[offset + 2];
 				}
 			}
+
+			if (61 == v_type) /* client identifier  */
+			{
+				if (7 == v_len && 1 == szpkt[offset + 2])
+				{
+					memcpy(szmac, &szpkt[offset + 3], sizeof(szmac));
+
+					#if  0
+					if (0 == memcmp(defszmac, szmac, sizeof(szmac)))
+					{
+						return;
+					}
+					#endif /* #if 0 */
+				}
+			}			
+
+			if (50 == v_type) /* request ip  */
+			{
+				if (4 == v_len)
+				{
+					ipaddr = *(DWORD *)&szpkt[offset + 2];
+					ipaddr = htonl(ipaddr);
+				}
+			}			
+
+			if (60 == v_type) /* vendor class identifier  */
+			{
+				if (v_len == strlen("udhcp 1.18.5"))
+				{
+					if (0 == memcmp("udhcp 1.18.5", &szpkt[offset + 2], v_len))
+					{
+						vendor_matched = TRUE;
+					}
+				}
+			}
+
+			
+			offset += 2;
+			offset += v_len;
+			if (szpkt[offset] == 255)
+			{
+				dbgprint("dhcp option end");
+				break;
+			}
 		}
 
-		
-		offset += 2;
-		offset += v_len;
-		if (szpkt[offset] == 255)
+		if (TRUE != vendor_matched || 3 != dhcp_msg_type) /*dhcp request  */
 		{
-			dbgprint("dhcp option end");
-			break;
+			return;
 		}
-	}
-
-	if (TRUE != vendor_matched || 3 != dhcp_msg_type) /*dhcp request  */
-	{
-		return;
 	}
 
 	#if  0
@@ -825,6 +968,22 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		return;
 	}
 	#endif /* #if 0 */
+
+	if (ntohl(g_iplocal) == ipaddr)
+	{
+		return;
+	}
+	else
+	{
+		//dbgprint("local=0x%x ip=0x%x", ntohl(g_iplocal), ipaddr);
+
+		int net = ipaddr & 0xFFFFFF00;
+		int host = ipaddr & 0xFF;
+		if (host == 0xFF || host == 0 || net != (ntohl(g_iplocal) & 0xFFFFFF00))
+		{
+			return;
+		}
+	}
 
 	dbgprint("ip=%d.%d.%d.%d mac=[%02X:%02X:%02X:%02X:%02X:%02X]",   (ipaddr >> 24) & 0xFF,
 																	  (ipaddr >> 16) & 0xFF,
@@ -845,19 +1004,20 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			continue;
 		}
 
+		#if  0
 		//如果mac冲突，用新的覆盖就的
 		if (0 == memcmp(g_astIPList[i].macaddr, szmac, 6))
 		{
 			g_astIPList[i].ipaddr = ipaddr;
 			g_astIPList[i].waittime = 0;
-			g_astIPList[i].connectted = FALSE;
 			break;
 		}
+		#endif /* #if 0 */
 		
 		if (ipaddr == g_astIPList[i].ipaddr)
 		{
 			g_astIPList[i].waittime = 0;
-			g_astIPList[i].connectted = FALSE;
+			g_astIPList[i].idletime = 0;
 			break;
 		}
 	}
@@ -900,9 +1060,9 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 				memcpy(g_astIPList[i].macaddr, szmac, 6);
 				g_astIPList[i].state = E_Init;
 				g_astIPList[i].waittime = 0;
+				g_astIPList[i].idletime = 0;
 				g_astIPList[i].runnning = TRUE;
 				g_astIPList[i].used = TRUE;
-				g_astIPList[i].connectted = FALSE;
 				break;
 			}
 		}
@@ -915,7 +1075,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 	{
 		if (g_astIPList[i].state < E_2ndDone)
 		{
-			if (NULL == AfxBeginThread(Thread_Update, &g_astIPList[i]))
+			if (NULL == (g_astIPList[i].pThread = AfxBeginThread(Thread_Update, &g_astIPList[i])))
 			{
 				dbgprint("update fail");
 				memset(&(g_astIPList[i]), 0, sizeof(IPList_S));
@@ -925,7 +1085,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		}
 		else
 		{
-			if (NULL == AfxBeginThread(Thread_Check, &g_astIPList[i]))
+			if (NULL == (g_astIPList[i].pThread = AfxBeginThread(Thread_Check, &g_astIPList[i])))
 			{
 				dbgprint("check fail");
 				memset(&(g_astIPList[i]), 0, sizeof(IPList_S));
@@ -945,54 +1105,28 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 UINT Thread_Snooping(LPVOID pParam)
 {
 	{
-		int sel_index = g_pstDlgPtr->m_netcardCtrl.GetCurSel();	
-		int index = 0;
-
-		pcap_if_t *alldevs;
-		pcap_if_t *d;
-		char errbuf[PCAP_ERRBUF_SIZE+1];
-		
-		/* Retrieve the device list */
-		if(pcap_findalldevs(&alldevs, errbuf) == -1)
-		{
-			g_pstDlgPtr->MessageBox(_T("没有可用的网卡"));
-			g_scanthread_quiting = 0;
-			return -1;
-		}
-
-		char ifname[256] = {0};
-		for (d = alldevs; d; d = d->next)
-		{
-			if (sel_index == index)
-			{
-				memcpy(ifname, d->name, strlen(d->name));
-				break;
-			}
-
-			index++;
-		}
-
-		/* Free the device list */
-		pcap_freealldevs(alldevs);
-
-		if (0 == strlen(ifname))
+		if (0 == strlen(g_ifname))
 		{
 			g_pstDlgPtr->MessageBox(_T("没有找到对应的网卡"));
 			g_scanthread_quiting = 0;
+			g_pstDlgPtr->m_pScanThread = NULL;
 			return -1;
 		}
-
 		
 		char ebuf[PCAP_ERRBUF_SIZE];
-		g_pd = pcap_open_live(ifname, 65535, 1, 100, ebuf);
+		g_pd = pcap_open_live(g_ifname, 65535, 1, 1000, ebuf);
 		if (!g_pd) 
 		{
 			dbgprint("pcap open fail, %s", ebuf);
 			g_scanthread_quiting = 0;
+			g_pstDlgPtr->m_pScanThread = NULL;
 			return -1;
 		}
 
-		char filter_app[] = "udp dst port 67"; /* 过滤表达式 */
+		pcap_setbuff(g_pd, 16*1024*1024);
+		pcap_set_buffer_size(g_pd, 16*1024*1024);
+
+		char filter_app[] = "udp dst port 67 or arp"; /* 过滤表达式 */
 		struct bpf_program filter; /* 已经编译好的过滤器 */
 		if (pcap_compile(g_pd, &filter, filter_app, 1, 0xFFFFFFFF) < 0)
 		{
@@ -1000,6 +1134,7 @@ UINT Thread_Snooping(LPVOID pParam)
 			pcap_close(g_pd);
 			g_pd = NULL;
 			g_scanthread_quiting = 0;
+			g_pstDlgPtr->m_pScanThread = NULL;
 			return -1;			
 		}
 		if (pcap_setfilter(g_pd, &filter) < 0)
@@ -1008,6 +1143,7 @@ UINT Thread_Snooping(LPVOID pParam)
 			pcap_close(g_pd);
 			g_pd = NULL;
 			g_scanthread_quiting = 0;
+			g_pstDlgPtr->m_pScanThread = NULL;
 			return -1;			
 		}
 
@@ -1020,7 +1156,12 @@ UINT Thread_Snooping(LPVOID pParam)
 			{
 				break;
 			}
-			
+
+			if (NULL == g_pd)
+			{
+				break;
+			}
+
 			pcap_loop(g_pd, 1, packet_handler, NULL);		
 		}
 		
@@ -1030,9 +1171,104 @@ UINT Thread_Snooping(LPVOID pParam)
 
 	dbgprint("thread quitting");
 	g_scanthread_quiting = FALSE;
+	g_pstDlgPtr->m_pScanThread = NULL;
 	return 0;
 }
 
+UINT Thread_Detecting(LPVOID pParam)
+{
+	{
+		if (0 == strlen(g_ifname))
+		{
+			g_pstDlgPtr->MessageBox(_T("没有找到对应的网卡"));
+			g_detectthread_quiting = 0;
+			g_pstDlgPtr->m_pDetectThread = NULL;
+			return -1;
+		}
+
+		#if  0
+		CString str;
+		int sel_index = g_pstDlgPtr->m_netcardCtrl.GetCurSel();	
+		g_pstDlgPtr->m_netcardCtrl.GetLBText(sel_index, str);
+
+		int num[4];
+		swscanf_s(str.GetString(), _T("%d.%d.%d.%d@"), &num[0], &num[1], &num[2], &num[3]);
+		dbgprint("%d.%d.%d.%d", num[0], num[1], num[2], num[3]);
+
+		int ip_local = num[3] | (num[2] << 8) | (num[1] << 16) | (num[0] << 24);
+		#endif /* #if 0 */
+		int ip_local = ntohl(g_iplocal);
+		dbgprint("local ip: %d.%d.%d.%d", (ip_local >> 24) & 0xFF, (ip_local >> 16) & 0xFF, (ip_local >> 8) & 0xFF, ip_local & 0xFF);
+		
+		int ipstart = (ip_local & 0xFFFFFF00);
+		
+	    pcap_t *fp;
+		char errbuf[PCAP_ERRBUF_SIZE];
+	    if ( (fp = pcap_open_live(g_ifname,            		// name of the device
+		                          2000,    // portion of the packet to capture (only the first 100 bytes)
+		                          1,						// promiscuous mode
+		                          1000,               		// read timeout
+		                          errbuf              		// error buffer
+		                        ) ) == NULL)
+	    {
+			g_pstDlgPtr->MessageBox(_T("打开网卡失败"));
+			g_scanthread_quiting = 0;
+			return -1;
+	    }
+
+		while (1)
+		{
+			if (g_detectthread_quiting)
+			{
+				break;
+			}
+			
+			arp_pkt_s arppkt;
+			
+			for (int i = 1; i < 255; i++)
+			{
+				if (i % 8 == 0)
+				{
+					Sleep(1000);
+				}
+				
+				if (ip_local == ipstart + i)
+				{
+					continue;
+				}
+				
+				memset(&arppkt, 0, sizeof(arppkt));
+				memset(arppkt.ethhdr.dmac, 0xFF, sizeof(arppkt.ethhdr.dmac));
+				memcpy(arppkt.ethhdr.smac, g_ifmac, sizeof(arppkt.ethhdr.smac));
+				arppkt.ethhdr.ethtype = htons(0x0806);
+
+				arppkt.hwtype = htons(0x01);
+				arppkt.proto = htons(0x0800);
+				arppkt.hwsize = 6;
+				arppkt.protosize = 4;
+				arppkt.opcode = htons(0x01);
+				memcpy(arppkt.sendmac, g_ifmac, sizeof(arppkt.sendmac));
+				arppkt.sendip = htonl(ip_local);
+				memset(arppkt.targetmac, 0xFF, sizeof(arppkt.targetmac));
+				arppkt.targetip = htonl(ipstart + i);
+
+				if (pcap_sendpacket(fp, (const unsigned char *)&arppkt, sizeof(arppkt)) != 0)
+				{
+					dbgprint("send arp to ip(0x%x) fail", ipstart + i);
+				}
+
+				Sleep(200);
+			}
+		}
+		
+		pcap_close(fp);
+	}
+	
+	dbgprint("detect thread quitting");
+	g_detectthread_quiting = FALSE;
+	g_pstDlgPtr->m_pDetectThread = NULL;
+	return 0;
+}
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -1074,6 +1310,7 @@ CBatchUpDlg::CBatchUpDlg(CWnd* pParent /*=NULL*/)
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
 	m_pScanThread = NULL;
+	m_pDetectThread = NULL;
 
 #ifdef _DEBUG  
 	//AllocConsole();
@@ -1089,6 +1326,35 @@ CBatchUpDlg::~CBatchUpDlg()
 #endif	
 
 	g_pstDlgPtr = NULL;
+
+	if (NULL != m_pScanThread)
+	{
+		TerminateThread(m_pScanThread, 0);
+		m_pScanThread = NULL;
+	}
+
+	if (NULL != m_pDetectThread)
+	{
+		TerminateThread(m_pDetectThread, 0);
+		m_pDetectThread = NULL;
+	}
+	
+	WaitForSingleObject(g_hIPListMutex,INFINITE);
+	for (int i = 0; i < IPLIST_MAX_ITEM; i++)
+	{
+		if (TRUE != g_astIPList[i].used)
+		{
+			continue;
+		}
+
+		if (NULL != g_astIPList[i].pThread)
+		{
+			TerminateThread(g_astIPList[i].pThread, 0);
+			g_astIPList[i].pThread = NULL;
+		}
+	}
+	ReleaseMutex(g_hIPListMutex);
+	
 }
 
 void CBatchUpDlg::DoDataExchange(CDataExchange* pDX)
@@ -1114,6 +1380,8 @@ BEGIN_MESSAGE_MAP(CBatchUpDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_WM_DESTROY()
 	ON_BN_CLICKED(IDC_CHECK1, &CBatchUpDlg::OnClickedCheck1)
+	ON_WM_SIZING()
+	ON_CBN_SELCHANGE(IDC_COMBO_NET, &CBatchUpDlg::OnSelchangeComboNet)
 END_MESSAGE_MAP()
 
 
@@ -1177,6 +1445,7 @@ BOOL CBatchUpDlg::OnInitDialog()
 		g_astIPList[i].used = FALSE;
 	}
 
+	memset(g_ifname, 0, sizeof(g_ifname));
 	{
 		//detect ethernet interface
 		pcap_if_t *alldevs;
@@ -1194,6 +1463,11 @@ BOOL CBatchUpDlg::OnInitDialog()
 		int index = 0;
 		for (d = alldevs; d; d = d->next)
 		{
+			if (0 == strlen(g_ifname))
+			{
+				sprintf_s(g_ifname, "%s", d->name);
+			}
+			
 			TCHAR  szDesc[128];
 			TCHAR  szDev[256];
 
@@ -1212,6 +1486,12 @@ BOOL CBatchUpDlg::OnInitDialog()
 			ipaddr = ((struct sockaddr_in *)(lastaddr->addr))->sin_addr.s_addr;
 			utils_Char2Tchar(d->description, szDesc, sizeof(szDesc));
 			wsprintf(szDev, _T("%d.%d.%d.%d@%s"), ipaddr & 0xFF, (ipaddr >> 8) & 0xFF, (ipaddr >> 16) & 0xFF, (ipaddr >> 24) & 0xFF, szDesc);
+
+			if (-1 == g_iplocal)
+			{
+				g_iplocal = ipaddr;
+			}
+			
 			m_netcardCtrl.InsertString(index, szDev);
 			index++;
 		}
@@ -1222,7 +1502,7 @@ BOOL CBatchUpDlg::OnInitDialog()
 		m_netcardCtrl.SetCurSel(0);
 	}
 	
-	#if  0
+	#if  1
 	/*获取网卡  */
 	{
 	    PIP_ADAPTER_INFO pIpAdapterInfo = new IP_ADAPTER_INFO;
@@ -1258,24 +1538,21 @@ BOOL CBatchUpDlg::OnInitDialog()
 	    PIP_ADAPTER_INFO pIterater = pIpAdapterInfo;
 	    while (pIterater)
 	    {
-	        //指向IP地址列表
-	        PIP_ADDR_STRING pIpAddr = &pIterater->IpAddressList;
-	        //while (pIpAddr)
-	        {
-				CString strNetInfo;
-				TCHAR   szAdpterIP[256] = {0};
-				TCHAR   szAdpterMask[256] = { 0 };
-				TCHAR   szAdpterDesc[256] = {0};
-
-				utils_Char2Tchar(pIpAddr->IpAddress.String, szAdpterIP, sizeof(szAdpterIP));
-				utils_Char2Tchar(pIpAddr->IpMask.String, szAdpterMask, sizeof(szAdpterMask));
-				utils_Char2Tchar(pIterater->Description, szAdpterDesc, sizeof(szAdpterDesc));
+			//dbgprint("g_ifname=%s", g_ifname);
+			if (NULL != strstr(g_ifname, pIterater->AdapterName))
+			{
+				dbgprint("AdapterName=%s, mac=%02x:%02x:%02x:%02x:%02x:%02x", pIterater->AdapterName, 
+																			  pIterater->Address[0],
+																			  pIterater->Address[1],
+																			  pIterater->Address[2],
+																			  pIterater->Address[3],
+																			  pIterater->Address[4],
+																			  pIterater->Address[5]);
 				
-				strNetInfo.Format(_T("%s@%s@%s"), szAdpterIP, szAdpterMask, szAdpterDesc);
-				m_netcardCtrl.AddString(strNetInfo);
-	            //pIpAddr = pIpAddr->Next;
-	        }
-
+				memcpy(g_ifmac, pIterater->Address, sizeof(g_ifmac));
+				break;
+			}
+			
 	        pIterater = pIterater->Next;
 	    }
 
@@ -1284,14 +1561,13 @@ BOOL CBatchUpDlg::OnInitDialog()
 	    {
 	        delete []pIpAdapterInfo;
 	    }	
-
-		m_netcardCtrl.SetCurSel(0);
 	}
 	#endif /* #if 0 */
 
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 
+	#if  0
 	g_hListCtrlMutex = CreateMutex(NULL, FALSE, _T("listctrl"));
 	if (NULL == g_hListCtrlMutex)
 	{
@@ -1303,6 +1579,7 @@ BOOL CBatchUpDlg::OnInitDialog()
 	{
 		MessageBox(_T("创建g_hIPListMutex互斥信号量失败"));
 	}
+	#endif /* #if 0 */
 
 	m_doublearea = TRUE;
 	
@@ -1435,6 +1712,28 @@ void CBatchUpDlg::OnBnClickedButtonFile()
 void CBatchUpDlg::OnBnClickedButtonStart()
 {
 	// TODO: Add your control notification handler code here
+	g_scanthread_quiting = FALSE;
+	g_detectthread_quiting = FALSE;
+
+	memset(g_astIPList, 0, sizeof(g_astIPList));
+	for (int i = 0; i < IPLIST_MAX_ITEM; i++)
+	{
+		g_astIPList[i].runnning = FALSE;
+		g_astIPList[i].used = FALSE;
+	}
+
+	g_hListCtrlMutex = CreateMutex(NULL, FALSE, _T("listctrl"));
+	if (NULL == g_hListCtrlMutex)
+	{
+		MessageBox(_T("创建g_hListCtrlMutex互斥信号量失败"));
+	}
+
+	g_hIPListMutex = CreateMutex(NULL, FALSE, _T("IPlist"));
+	if (NULL == g_hIPListMutex)
+	{
+		MessageBox(_T("创建g_hIPListMutex互斥信号量失败"));
+	}
+	
 	UpdateData(TRUE);
 	
 	if (m_imgPath.GetLength() == 0)
@@ -1450,7 +1749,16 @@ void CBatchUpDlg::OnBnClickedButtonStart()
 		goto Quit_On_Fail;
 	}
 
+	m_pDetectThread = AfxBeginThread(Thread_Detecting, NULL);
+	if (NULL == m_pDetectThread)
+	{
+		MessageBox(_T("启动arp探测进程出错"));
+		goto Quit_On_Fail;
+	}
+
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
+	GetDlgItem(IDC_COMBO_NET)->EnableWindow(FALSE);
+	GetDlgItem(IDC_EDIT_VER)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(TRUE);
 
 	goto Quit_On_OK;
@@ -1466,6 +1774,17 @@ Quit_On_Fail:
 		Sleep(10);
 		m_pScanThread = NULL;
 	}
+
+	if (NULL != m_pDetectThread)
+	{
+		g_detectthread_quiting = TRUE;
+		while (g_detectthread_quiting)
+		{
+			Sleep(10);
+		}
+		Sleep(10);
+		m_pDetectThread = NULL;
+	}	
 	return;
 
 Quit_On_OK:
@@ -1477,23 +1796,97 @@ Quit_On_OK:
 void CBatchUpDlg::OnBnClickedButtonStop()
 {
 	// TODO: Add your control notification handler code here
-
-	if (NULL != g_pd)
-	{
-		pcap_breakloop(g_pd);
-	}
+	dbgprint("user force stopping...");
 	
 	g_scanthread_quiting = TRUE;
+	g_detectthread_quiting = TRUE;
+	
+	dbgprint("terminating scan thread...");
+	int totalcnt = 0;
 	while (g_scanthread_quiting)
 	{
-		Sleep(10);
+		Sleep(1000);
+		totalcnt++;
+		if (totalcnt > 3)
+		{
+			TerminateThread(m_pScanThread, 0);
+			m_pScanThread = NULL;
+			g_scanthread_quiting = FALSE;
+			break;
+		}
 	}
 	Sleep(10);
 	m_pScanThread = NULL;
 
+	dbgprint("terminating detect thread...");
+	totalcnt = 0;
+	while (g_detectthread_quiting)
+	{
+		Sleep(1000);
+		totalcnt++;
+		if (totalcnt > 3)
+		{
+			TerminateThread(m_pDetectThread, 0);
+			m_pDetectThread = NULL;
+			g_detectthread_quiting = FALSE;
+			break;
+		}
+	}
+	Sleep(10);
+	m_pDetectThread = NULL;
+
+	if (NULL != g_pd)
+	{
+		Sleep(1000);
+		pcap_breakloop(g_pd);
+		pcap_close(g_pd);
+		g_pd = NULL;
+	}
+
+	dbgprint("terminating upgrade thread...");
+	for (int i = 0; i < IPLIST_MAX_ITEM; i++)
+	{
+		if (TRUE != g_astIPList[i].used)
+		{
+			continue;
+		}
+
+		if (NULL != g_astIPList[i].pThread)
+		{
+			dbgprint("terminating thread 0x%x", g_astIPList[i].pThread);
+			TerminateThread(g_astIPList[i].pThread, 0);
+			g_astIPList[i].pThread = NULL;
+			g_astIPList[i].used = FALSE;
+		}
+	}
+
+	dbgprint("release resource...");
+	memset(g_astIPList, 0, sizeof(g_astIPList));
+	for (int i = 0; i < IPLIST_MAX_ITEM; i++)
+	{
+		g_astIPList[i].runnning = FALSE;
+		g_astIPList[i].used = FALSE;
+	}
+
+	if (NULL != g_hListCtrlMutex)
+	{
+		CloseHandle(g_hListCtrlMutex);
+		g_hListCtrlMutex = NULL;
+	}
+
+	if (NULL != g_hIPListMutex)
+	{
+		CloseHandle(g_hIPListMutex);
+		g_hIPListMutex = NULL;
+	}
+
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(TRUE);
+	GetDlgItem(IDC_COMBO_NET)->EnableWindow(TRUE);
+	GetDlgItem(IDC_EDIT_VER)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 	GetDlgItem(IDC_CHECK1)->EnableWindow(TRUE);
+
+	dbgprint("user force stop....quit");
 }
 
 void CBatchUpDlg::OnDestroy()
@@ -1511,14 +1904,27 @@ void CBatchUpDlg::OnDestroy()
 		m_pScanThread = NULL;
 	}	
 
+	if (NULL != m_pDetectThread)
+	{
+		g_detectthread_quiting = TRUE;
+		while (g_detectthread_quiting)
+		{
+			Sleep(10);
+		}
+
+		m_pDetectThread = NULL;
+	}	
+
 	if (NULL != g_hListCtrlMutex)
 	{
 		CloseHandle(g_hListCtrlMutex);
+		g_hListCtrlMutex = NULL;
 	}
 
 	if (NULL != g_hIPListMutex)
 	{
 		CloseHandle(g_hIPListMutex);
+		g_hIPListMutex = NULL;
 	}
 
 	KillTimer(UPDATE_UI_TIMER);
@@ -1540,6 +1946,18 @@ void CBatchUpDlg::OnTimer(UINT nIDEvent)
 				}
 				
 				g_astIPList[i].waittime++;
+				g_astIPList[i].idletime++;
+
+				if (g_astIPList[i].idletime > 300)
+				{
+					if (NULL != g_astIPList[i].pThread)
+					{
+						TerminateThread(g_astIPList[i].pThread, 0);
+					}
+					g_astIPList[i].pThread = NULL;
+					g_astIPList[i].used = FALSE;
+					g_astIPList[i].idletime = 0;
+				}
 			}
 			ReleaseMutex(g_hIPListMutex);
 
@@ -1560,4 +1978,120 @@ void CBatchUpDlg::OnClickedCheck1()
 	// TODO: Add your control notification handler code here
 
 	UpdateData(TRUE);
+}
+
+
+void CBatchUpDlg::OnSizing(UINT fwSide, LPRECT pRect)
+{
+	CDialogEx::OnSizing(fwSide, pRect);
+
+	// TODO: Add your message handler code here
+}
+
+
+void CBatchUpDlg::OnSelchangeComboNet()
+{
+	// TODO: Add your control notification handler code here
+	int sel_index = m_netcardCtrl.GetCurSel();	
+	int index = 0;
+
+	pcap_if_t *alldevs;
+	pcap_if_t *d;
+	char errbuf[PCAP_ERRBUF_SIZE+1];
+	
+	/* Retrieve the device list */
+	if(pcap_findalldevs(&alldevs, errbuf) == -1)
+	{
+		MessageBox(_T("没有可用的网卡"));
+		return;
+	}
+
+	for (d = alldevs; d; d = d->next)
+	{
+		if (sel_index == index)
+		{
+			sprintf_s(g_ifname, "%s", d->name);
+			break;
+		}
+
+		index++;
+	}
+
+	/* Free the device list */
+	pcap_freealldevs(alldevs);
+
+	if (0 == strlen(g_ifname))
+	{
+		MessageBox(_T("没有找到对应的网卡"));
+		return;
+	}
+
+	CString str;
+	g_pstDlgPtr->m_netcardCtrl.GetLBText(sel_index, str);
+
+	int num[4];
+	swscanf_s(str.GetString(), _T("%d.%d.%d.%d@"), &num[0], &num[1], &num[2], &num[3]);
+	dbgprint("local ip: %d.%d.%d.%d", num[0], num[1], num[2], num[3]);
+
+	int ip_local = num[3] | (num[2] << 8) | (num[1] << 16) | (num[0] << 24);
+	g_iplocal = htonl(ip_local);
+
+	/*获取网卡  */
+	{
+	    PIP_ADAPTER_INFO pIpAdapterInfo = new IP_ADAPTER_INFO;
+	    unsigned long    ulSize = sizeof(IP_ADAPTER_INFO);
+
+	    //获取适配器信息
+	    int nRet = GetAdaptersInfo(pIpAdapterInfo,&ulSize);
+	    if (ERROR_BUFFER_OVERFLOW == nRet)
+	    {
+	        //空间不足，删除之前分配的空间
+	        delete []pIpAdapterInfo;
+
+	        //重新分配大小
+	        pIpAdapterInfo = (PIP_ADAPTER_INFO) new BYTE[ulSize];
+
+	        //获取适配器信息
+	        nRet = GetAdaptersInfo(pIpAdapterInfo,&ulSize);
+
+	        //获取失败
+	        if (ERROR_SUCCESS != nRet)
+	        {
+	            if (pIpAdapterInfo != NULL)
+	            {
+	                delete []pIpAdapterInfo;
+	            }
+
+				MessageBox(_T("获取网卡列表失败"));
+	            return ;
+	        }
+	    }
+		
+	    //赋值指针
+	    PIP_ADAPTER_INFO pIterater = pIpAdapterInfo;
+	    while (pIterater)
+	    {
+			if (NULL != strstr(g_ifname, pIterater->AdapterName))
+			{
+				dbgprint("AdapterName=%s, mac=%02x:%02x:%02x:%02x:%02x:%02x", pIterater->AdapterName, 
+																			  pIterater->Address[0],
+																			  pIterater->Address[1],
+																			  pIterater->Address[2],
+																			  pIterater->Address[3],
+																			  pIterater->Address[4],
+																			  pIterater->Address[5]);
+				
+				memcpy(g_ifmac, pIterater->Address, sizeof(g_ifmac));
+				break;
+			}
+			
+	        pIterater = pIterater->Next;
+	    }
+
+	    //清理
+	    if (pIpAdapterInfo)
+	    {
+	        delete []pIpAdapterInfo;
+	    }	
+	}	
 }

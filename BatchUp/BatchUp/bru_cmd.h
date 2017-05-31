@@ -2,21 +2,6 @@
 #define __BRU_CMD_H__
 
 
-typedef struct iplist
-{
-	DWORD               ipaddr;
-    unsigned char       macaddr[6];
-	char                szsn[19+1];
-	char                szmac[12+1];
-    char                szversion[128+1];
-    int                 state;
-    int                 waittime;
-	bool                runnning;
-	bool                used;
-	bool                connectted;
-}IPList_S;
-
-
 extern int  bru_ssh_login(DWORD ipaddr, int *psession);
 extern void bru_ssh_logout(int session);
 extern int bru_ssh_uploadfile(int session, char *psrc, char *pdst);
@@ -29,6 +14,8 @@ extern int bru_ssh_checkback(int session, int bootm, char *version);
 extern void bru_ssh_reboot(int session);
 extern int bru_ssh_set_macaddr(int session, unsigned char macaddr[6]);
 extern void bru_ssh_complete(int session);
+extern void bru_ssh_led_slowflash(int session);
+extern void bru_ssh_ledfastflash(int session);
 
 
 

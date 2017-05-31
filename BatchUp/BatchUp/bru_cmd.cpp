@@ -36,15 +36,15 @@ int bru_ssh_login(DWORD ipaddr, int *psession)
 				{
 					ssh_executecmd(session, "admin", sz_resp, sizeof(sz_resp), 1000);
 					ssh_executecmd(session, "qpa;10@(", sz_resp, sizeof(sz_resp), 1000);
-					ssh_executecmd(session, "start-shell", sz_resp, sizeof(sz_resp), 500);
-					ssh_executecmd(session, "sudo su -", sz_resp, sizeof(sz_resp), 500);
+					ssh_executecmd(session, "start-shell", sz_resp, sizeof(sz_resp), 1000);
+					ssh_executecmd(session, "sudo su -", sz_resp, sizeof(sz_resp), 1000);
 
 					/*使能root登陆  */
 					ssh_executecmd(session, "sed -i \"s/PermitRootLogin no/#PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 					ssh_executecmd(session, "/etc/init.d/sshd restart", sz_resp, sizeof(sz_resp), 1000);
 
 					ssh_sessiondeinit(session);
-					Sleep(1000);
+					Sleep(2000);
 				}
 			}
 			else
@@ -73,8 +73,8 @@ int bru_ssh_login(DWORD ipaddr, int *psession)
 	Sleep(1000);
 
 	ssh_executecmd(session, "mkdir -p /tmp/__backfs", sz_resp, sizeof(sz_resp), 500);
-	ssh_executecmd(session, "cp -rf /bin/busybox /tmp/", sz_resp, sizeof(sz_resp), 1000);
-	ssh_executecmd(session, "cp -rf /usr/bin/pgrep /tmp/", sz_resp, sizeof(sz_resp), 1000);
+	//ssh_executecmd(session, "cp -rf /bin/busybox /tmp/", sz_resp, sizeof(sz_resp), 1000);
+	//ssh_executecmd(session, "cp -rf /usr/bin/pgrep /tmp/", sz_resp, sizeof(sz_resp), 1000);
 	
 	#if  0	
 	/*拷贝一些命令  */
@@ -100,7 +100,25 @@ int bru_ssh_uploadfile(int session, char *psrc, char *pdst)
 	return ssh_putfile(session, psrc, pdst, 120*1000);
 }
 
-#if  0
+void bru_ssh_led_slowflash(int session)
+{
+	char  sz_resp[1024] = {0};
+	
+	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/ledctrl 1000000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 1000);
+}
+
+void bru_ssh_ledfastflash(int session)
+{
+	char  sz_resp[1024] = {0};
+	
+	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(500);
+	ssh_executecmd(session, "/tmp/ledctrl 300000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 1000);
+}
+
+#if  1
 int bru_ssh_upgrade(int session)
 {
 	int   ret = 0;
@@ -108,9 +126,16 @@ int bru_ssh_upgrade(int session)
 	char  sz_resp[1024] = {0};
 
 	ssh_executecmd(session, "pgrep phytest | xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
-	Sleep(500);
+	Sleep(1000);
 	ssh_executecmd(session, "pgrep lte_testmac | xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(1000);
+	#if  0
+	ssh_executecmd(session, "pgrep ltel1 | xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(1000);
+	ssh_executecmd(session, "pgrep enodeb | xargs kill -9", sz_resp, sizeof(sz_resp), 1000);
+	Sleep(1000);
+	#endif /* #if 0 */
+	
 	sprintf_s(sz_req, "ImageUpgrade /tmp/firmware.img raw > /tmp/updatelog 2>&1 & \r\n");
 	ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
 	if (0 != ret)
@@ -141,8 +166,10 @@ int bru_ssh_upgrade(int session)
 			continue;
 		}
 
+		dbgprint("resp=[%s]", sz_resp);
+
 		int  pid = -1;
-		char szpid[32] = {0};
+		char szpid[256] = {0};
 		sscanf_s(sz_resp, "%s", szpid, sizeof(szpid));
 		if ((1 == sscanf_s(szpid, "%d", &pid)) && (pid > 0))
 		{
@@ -162,37 +189,62 @@ int bru_ssh_upgrade(int session)
 		break;
 	}
 
+	ssh_executecmd(session, "sync", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(2000);
 
+	ret = 0;
 	cnt = 0;
 	memset(sz_resp, 0, sizeof(sz_resp));
 	while ((strlen(sz_resp) == 0) && cnt < 10)
 	{
-		Sleep(1000);
+		ssh_executecmd(session, "echo xx>>/tmp/updatelog", sz_resp, sizeof(sz_resp), 1000);
+		
+		//Sleep(1000);
 		
 		cnt++;
-		sprintf_s(sz_req, "tail -n 10 /tmp/updatelog | grep '#Upgrade .*!#'");
+		sprintf_s(sz_req, "tail -n 30 /tmp/updatelog | grep '###Upgrade'");
 		ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
 		if (0 != ret)
 		{
 			dbgprint("get upgrade log fail ret=%d", ret);
 			continue;
 		}
+
+		if (NULL != strstr(sz_resp, "#Upgrade Success!#"))
+		{
+			break;
+		}
+
+		if (NULL != strstr(sz_resp, "#Upgrade Failed!#"))
+		{
+			break;
+		}
+		
 	}
 
+	if (cnt > 10)
+	{
+		dbgprint("cnt=%d, upgrade timeout", cnt);
+		return -1;
+	}
+	
 	if (NULL != strstr(sz_resp, "#Upgrade Success!#"))
 	{
 		ret = 0;
 		dbgprint("upgrade ok ret=%d", ret);
 		
 	}
+
+	//默认升级成功
+	#if  0
 	else
 	{
 		ret = -1;
 		dbgprint("upgrade fail ret=%d", ret);
 	}	
+	#endif /* #if 0 */
 	
-	return ret;
+	return 0;
 }
 #else
 int bru_ssh_upgrade(int session)
@@ -219,7 +271,7 @@ int bru_ssh_upgrade(int session)
 		return ret;
 	}
 
-	ssh_executecmd(session, "/tmp/ledctrl 300000 &", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "/tmp/ledctrl 300000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 1000);
 
 	Sleep(5000);
 
@@ -486,9 +538,9 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 
-	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(500);
-	ssh_executecmd(session, "/tmp/ledctrl 1000000 &", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "/tmp/ledctrl 1000000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 1000);
 	return 0;	
 }
 
@@ -497,18 +549,19 @@ void bru_ssh_complete(int session)
 	char  sz_resp[1024] = {0};
 	
 	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
-	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+	//ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 
-	ssh_executecmd(session, "/tmp/busybox chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(500);
-	ssh_executecmd(session, "/tmp/ledctrl 1000000 &", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "/tmp/ledctrl 1000000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 1000);
 	return;	
 }
 
 void bru_ssh_reboot(int session)
 {
 	char  sz_resp[1024] = {0};
-	ssh_executecmd(session, "/tmp/busybox reboot", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "reboot", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(2000);
 
 	return;	

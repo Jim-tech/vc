@@ -1,2 +1,15 @@
----- g_IPCheckthread_quiting Matches (1 in 1 files) ----
-BatchUpDlg.cpp (BatchUp):bool 		 g_IPCheckthread_quiting = FALSE;
+---- runnning Matches (14 in 1 files) ----
+BatchUpDlg.cpp (BatchUp):	bool                runnning;
+BatchUpDlg.cpp (BatchUp):		pstIPInfo->runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):	pstIPInfo->runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):		pstIPInfo->runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):	pstIPInfo->runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):			if (g_astIPList[i].runnning == TRUE)
+BatchUpDlg.cpp (BatchUp):				g_astIPList[i].runnning = TRUE;
+BatchUpDlg.cpp (BatchUp):			g_astIPList[i].runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):				g_astIPList[i].runnning = TRUE;
+BatchUpDlg.cpp (BatchUp):				g_astIPList[i].runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):				g_astIPList[i].runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):		g_astIPList[i].runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):		g_astIPList[i].runnning = FALSE;
+BatchUpDlg.cpp (BatchUp):		g_astIPList[i].runnning = FALSE;

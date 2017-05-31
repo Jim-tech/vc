@@ -17,7 +17,7 @@
 #define  MAX_SCP_MTU       1400
 
 
-#define  MAX_SSH_CTRL_CNT  128
+#define  MAX_SSH_CTRL_CNT  64
 
 typedef struct sshsession
 {
@@ -43,6 +43,8 @@ SSH_CTRL_S g_astSshCtrl[MAX_SSH_CTRL_CNT];
 #define SCP_GET_MAGIC_STRING  "[*!scp-get!*]"
 #define SCP_PUT_MAGIC_STRING  "[*!scp-put!*]"
 
+#define dbgprint(...)
+#if  0
 #define dbgprint(...) \
     do\
     {\
@@ -50,6 +52,7 @@ SSH_CTRL_S g_astSshCtrl[MAX_SSH_CTRL_CNT];
         printf(__VA_ARGS__);\
         printf("\n");\
      }while(0)
+#endif /* #if 0 */
 
 void ssh_readinput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 {
@@ -126,11 +129,20 @@ void ssh_writeoutput(SSH_CTRL_S *pCtrl, char *pcmdstr)
 
 void ssh_closesession(SSH_CTRL_S *pCtrl)
 {
+	int timecnt = 0;
+	
 	//TerminateThread(pCtrl->hSshThread, 0);
 	pCtrl->closing = true;
 	while (pCtrl->closing)
 	{
-		Sleep(1);
+		Sleep(100);
+		timecnt += 100;
+		if (timecnt > 10000)
+		{
+			pCtrl->closing = false;
+			TerminateThread(pCtrl->hSshThread, 0);
+			break;
+		}
 	}
 }
 
@@ -834,7 +846,7 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 	Sleep(500);
 	char szOutput[1024];
 	ssh_executecmd(ctrlID, "", szOutput, sizeof(szOutput), 500);
-	printf(szOutput);
+	//printf(szOutput);
 
 	pCtrl->IsReady = true;	
 	

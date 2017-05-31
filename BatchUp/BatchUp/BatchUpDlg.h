@@ -46,6 +46,9 @@ public:
 	CColorListCtrl  m_listCtrl;
     CComboBox       m_netcardCtrl;
 	CWinThread     *m_pScanThread;
+	CWinThread     *m_pDetectThread;
 	BOOL m_doublearea;
 	afx_msg void OnClickedCheck1();
+	afx_msg void OnSizing(UINT fwSide, LPRECT pRect);
+	afx_msg void OnSelchangeComboNet();
 };
