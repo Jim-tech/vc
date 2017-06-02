@@ -17,7 +17,7 @@
 #define  MAX_SCP_MTU       1400
 
 
-#define  MAX_SSH_CTRL_CNT  64
+#define  MAX_SSH_CTRL_CNT  16
 
 typedef struct sshsession
 {
@@ -43,16 +43,24 @@ SSH_CTRL_S g_astSshCtrl[MAX_SSH_CTRL_CNT];
 #define SCP_GET_MAGIC_STRING  "[*!scp-get!*]"
 #define SCP_PUT_MAGIC_STRING  "[*!scp-put!*]"
 
-#define dbgprint(...)
-#if  0
+extern FILE *fplog;
 #define dbgprint(...) \
     do\
     {\
-        printf("[%s][%d][0x%08x]", __FUNCTION__, __LINE__, GetCurrentThreadId());\
+		SYSTEMTIME __sys;\
+		GetLocalTime(&__sys);\
+		if (NULL != fplog) \
+		{\
+            fprintf(fplog, "[%04d-%02d-%02d %02d:%02d:%02d][%s][%d][0x%08x]", __sys.wYear, __sys.wMonth, __sys.wDay, \
+            					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
+    		fprintf(fplog, __VA_ARGS__);\
+    		fprintf(fplog, "\n");\
+		}\
+		printf("[%04d-%02d-%02d %02d:%02d:%02d][%s][%d][0x%08x]", __sys.wYear, __sys.wMonth, __sys.wDay, \
+        					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
         printf(__VA_ARGS__);\
         printf("\n");\
      }while(0)
-#endif /* #if 0 */
 
 void ssh_readinput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 {
@@ -315,8 +323,11 @@ int ssh_session_getfile(int sock, LIBSSH2_SESSION *session, char *pInput)
 	}
 	timecost = (int)time(NULL) - start;
 	dbgprint("");
-	dbgprint("(%s) download done, speed %d B/s", pSrc, fileinfo.st_size/timecost);
-
+	if (timecost > 0)
+	{
+		dbgprint("(%s) download done, speed %d B/s", pSrc, fileinfo.st_size/timecost);
+	}
+	
     libssh2_channel_free(channel);
 	fclose(fp);
 	return 0;	
@@ -366,7 +377,7 @@ int ssh_session_putfile(int sock, LIBSSH2_SESSION *session, char *pInput)
 		{
             char *err_msg;
             libssh2_session_last_error(session, &err_msg, NULL, 0);
-            dbgprint("failed to put file[%s], err=%s", pDst, err_msg);
+            dbgprint("failed to put file[%s], err=%s st_mode=0x%x st_size=0x%x", pDst, err_msg, fileinfo.st_mode, fileinfo.st_size);
 			return -1;
         }
 	} while(!channel);
@@ -447,6 +458,9 @@ int ssh_session_execli(int sock, LIBSSH2_CHANNEL *channel, LIBSSH2_SESSION *sess
 	int  rc;
 	char buffer[0x4000];
 	int  offset = 0;
+
+	//先读清上次的
+	libssh2_channel_read(channel, buffer, sizeof(buffer));
 	
 	do
 	{
@@ -794,7 +808,7 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 	
 	pCtrl->IsUsed = true;
 
-	wsprintf(szName, _T("sshrequest%d"), ctrlID);
+	wsprintf(szName, _T("sshrequest_0x%x_%d"), GetCurrentThreadId(), ctrlID);
 	pCtrl->hReqEvent = CreateEvent(NULL, FALSE, FALSE, szName);
 	if (NULL == pCtrl->hReqEvent)
 	{
@@ -802,7 +816,7 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 		return -1;
 	}
 
-	wsprintf(szName, _T("sshreply%d"), ctrlID);
+	wsprintf(szName, _T("sshreply_0x%x_%d"), GetCurrentThreadId(), ctrlID);
 	pCtrl->hReplyEvent = CreateEvent(NULL, FALSE, FALSE, szName);
 	if (NULL == pCtrl->hReplyEvent)
 	{
@@ -810,7 +824,7 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 		return -1;
 	}
 
-	wsprintf(szName, _T("mInput%d"), ctrlID);
+	wsprintf(szName, _T("mInput_0x%x_%d"), GetCurrentThreadId(), ctrlID);
 	pCtrl->hInputMutex= CreateMutex(NULL, FALSE, szName);
 	if (NULL == pCtrl->hInputMutex)
 	{
@@ -818,7 +832,7 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 		return -1;
 	}
 
-	wsprintf(szName, _T("mOutput%d"), ctrlID);
+	wsprintf(szName, _T("mOutput_0x%x_%d"), GetCurrentThreadId(), ctrlID);
 	pCtrl->hOutputMutex= CreateMutex(NULL, FALSE, szName);
 	if (NULL == pCtrl->hOutputMutex)
 	{

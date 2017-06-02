@@ -115,7 +115,6 @@
   <ItemGroup>
     <ClCompile Include="BatchUp.cpp" />
     <ClCompile Include="BatchUpDlg.cpp" />
-    <ClCompile Include="bru_cmd.cpp" />
     <ClCompile Include="ColorListCtrl.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -33,15 +33,6 @@
 
 #include <afxcontrolbars.h>     // MFC support for ribbons and control bars
 
-#define dbgprint(...) \
-    do\
-    {\
-        printf("[%s][%d][0x%08x]", __FUNCTION__, __LINE__, GetCurrentThreadId());\
-        printf(__VA_ARGS__);\
-        printf("\n");\
-     }while(0)
-
-
 
 #ifdef _UNICODE
 #if defined _M_IX86

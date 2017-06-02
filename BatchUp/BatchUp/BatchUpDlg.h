@@ -33,22 +33,22 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnSizing(UINT fwSide, LPRECT pRect);    
 	afx_msg void OnBnClickedButtonFile();
 	afx_msg void OnBnClickedButtonStart();
 	afx_msg void OnBnClickedButtonStop();
-	afx_msg void OnDestroy();
+	afx_msg void OnClickedTypeCheckBox();
+	afx_msg void OnSelchangeComboNet();
     afx_msg void OnTimer(UINT nIDEvent);
-    
-	POINT       old;
-	CString     m_imgPath;
-	CString     m_ver;
+	afx_msg void OnDestroy();
 
+	POINT           old;
+	CString         m_imgPath;
+	CString         m_ver;
 	CColorListCtrl  m_listCtrl;
     CComboBox       m_netcardCtrl;
-	CWinThread     *m_pScanThread;
-	CWinThread     *m_pDetectThread;
-	BOOL m_doublearea;
-	afx_msg void OnClickedCheck1();
-	afx_msg void OnSizing(UINT fwSide, LPRECT pRect);
-	afx_msg void OnSelchangeComboNet();
+	HANDLE          m_pCapThread;
+	HANDLE          m_pArpThread;
+	HANDLE          m_pProcessThread;
+	BOOL            m_doublearea;
 };

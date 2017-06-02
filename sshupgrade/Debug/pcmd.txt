@@ -1,6 +1,0 @@
-eeprom-tools -t sn -r | sed 's/^.*[\(]\(.*\)[\)].*$/\1/g'
-eeprom-tools -t mac -r | sed 's/^.*[\(]\(.*\)[\)].*$/\1/g'
-eeprom-tools -t bootm -r | sed 's/^.*[\(]\(.*\)[\)].*$/\1/g'
-cat /etc/banner | grep 'V...R...C..B...' | awk '{print $NF}'
-ImageUpgrade /tmp/BRS_V100R001C00B003_ATE_52494@170527.IMG &
-
