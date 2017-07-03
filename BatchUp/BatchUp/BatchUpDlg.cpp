@@ -70,6 +70,7 @@ typedef struct iplist
     char                szversion[128];
     int                 state;
     int                 idletime;
+    int                 starttime;
 	bool                runnning;
 	bool                used;
 	HANDLE              hProcess;
@@ -98,11 +99,14 @@ FILE           *fplog = NULL;
             					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
     		fprintf(fplog, __VA_ARGS__);\
     		fprintf(fplog, "\n");\
+    		fflush(fplog);\
 		}\
 		printf("[%04d-%02d-%02d %02d:%02d:%02d][%s][%d][0x%08x]", __sys.wYear, __sys.wMonth, __sys.wDay, \
         					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
         printf(__VA_ARGS__);\
         printf("\n");\
+        fflush(stdout);\
+        fflush(stderr);\
      }while(0)
 
 typedef enum
@@ -447,6 +451,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 {
 	DWORD         ipaddr = 0xFFFFFFFF;
 	unsigned char szmac[6] = {0xFF};
+	bool          dhcp = FALSE;
 
 	if ((0x08 == pkt_data[12]) && (0x06 == pkt_data[13]))
 	{
@@ -539,7 +544,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 				{
 					memcpy(szmac, &szpkt[offset + 3], sizeof(szmac));
 
-					#if  0
+					#if  1
 					if (0 == memcmp(defszmac, szmac, sizeof(szmac)))
 					{
 						return;
@@ -554,6 +559,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 				{
 					ipaddr = *(DWORD *)&szpkt[offset + 2];
 					ipaddr = htonl(ipaddr);
+					dhcp = TRUE;
 				}
 			}			
 
@@ -644,7 +650,28 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 
 		if (ipaddr == g_astIPList[i].ipaddr)
 		{
-			g_astIPList[i].idletime = 0;
+			//修复升级过程中重启的问题
+			if (dhcp)
+			{
+				if (g_astIPList[i].starttime >= 30)
+				{
+					dbgprint("ip=%d.%d.%d.%d recv dhcp 30 seconds after startup, though it rebooted", (ipaddr >> 24) & 0xFF,
+																	  (ipaddr >> 16) & 0xFF,
+																	  (ipaddr >> 8) & 0xFF,
+																	  ipaddr & 0xFF);
+					
+					if (NULL != g_astIPList[i].hProcess)
+					{
+						TerminateProcess(g_astIPList[i].hProcess, 0);
+					}
+					g_astIPList[i].runnning = FALSE;
+					g_astIPList[i].idletime = 0;
+					g_astIPList[i].hProcess = NULL;
+				}
+				
+				g_astIPList[i].starttime = 0;
+			}
+			
 			break;
 		}
 	}
@@ -662,6 +689,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			else
 			{
 				g_astIPList[i].runnning = TRUE;
+				g_astIPList[i].idletime = 0;
 				dbgprint("dut start, ip=%s, state=%d ", ipstring, g_astIPList[i].state);
 			}
 		}
@@ -685,8 +713,12 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			{
 				g_astIPList[i].ipaddr = ipaddr;
 				memcpy(g_astIPList[i].macaddr, szmac, 6);
+				memset(g_astIPList[i].szsn, 0, sizeof(g_astIPList[i].szsn));
+				memset(g_astIPList[i].szmac, 0, sizeof(g_astIPList[i].szmac));
+				memset(g_astIPList[i].szversion, 0, sizeof(g_astIPList[i].szversion));
 				g_astIPList[i].state = E_Init;
 				g_astIPList[i].idletime = 0;
+				g_astIPList[i].starttime = 0;
 				g_astIPList[i].runnning = TRUE;
 				g_astIPList[i].used = TRUE;
 				break;
@@ -1640,16 +1672,22 @@ void CBatchUpDlg::OnTimer(UINT nIDEvent)
 					continue;
 				}
 				
+				g_astIPList[i].starttime++;
 				g_astIPList[i].idletime++;
 
 				if (g_astIPList[i].idletime > 300)
 				{
-					TerminateProcess(g_astIPList[i].hProcess, 0);
+					if (NULL != g_astIPList[i].hProcess)
+					{
+						TerminateProcess(g_astIPList[i].hProcess, 0);
+					}
 					g_astIPList[i].used = FALSE;
 					g_astIPList[i].state = E_Init;
 					g_astIPList[i].runnning = FALSE;
 					g_astIPList[i].idletime = 0;
+					g_astIPList[i].starttime = 0;
 					g_astIPList[i].hProcess = NULL;
+					g_astIPList[i].ipaddr = 0;
 				}
 			}
 			ReleaseMutex(g_hIPListMutex);

@@ -91,6 +91,11 @@ int bru_ssh_uploadfile(int session, char *psrc, char *pdst)
 	return ssh_putfile(session, psrc, pdst, 120*1000);
 }
 
+int bru_ssh_downloadfile(int session, char *psrc, char *pdst)
+{
+	return ssh_getfile(session, psrc, pdst, 120*1000);
+}
+
 void bru_ssh_led_slowflash(int session)
 {
 	char  sz_resp[1024] = {0};

@@ -55,16 +55,19 @@ extern FILE *fplog;
             					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
     		fprintf(fplog, __VA_ARGS__);\
     		fprintf(fplog, "\n");\
+    		fflush(fplog);\
 		}\
 		printf("[%04d-%02d-%02d %02d:%02d:%02d][%s][%d][0x%08x]", __sys.wYear, __sys.wMonth, __sys.wDay, \
         					__sys.wHour, __sys.wMinute, __sys.wSecond, __FUNCTION__, __LINE__, GetCurrentThreadId());\
         printf(__VA_ARGS__);\
         printf("\n");\
+        fflush(stdout);\
+        fflush(stderr);\
      }while(0)
 
 void ssh_readinput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 {
-	WaitForSingleObject(pCtrl->hInputMutex,INFINITE);
+	WaitForSingleObject(pCtrl->hInputMutex,15000);
 	pcmdstr[0] = '\0';
 	strncpy_s(pcmdstr, maxbufferlen-1, pCtrl->szInput, strlen(pCtrl->szInput)); 
 	memset(pCtrl->szInput, 0, sizeof(pCtrl->szInput));
@@ -73,7 +76,7 @@ void ssh_readinput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 
 void ssh_writeinput(SSH_CTRL_S *pCtrl, char *pcmdstr)
 {
-	WaitForSingleObject(pCtrl->hInputMutex,INFINITE);
+	WaitForSingleObject(pCtrl->hInputMutex,15000);
 	pCtrl->szInput[0] = '\0';
 	strncpy_s(pCtrl->szInput, sizeof(pCtrl->szInput)-1, pcmdstr, strlen(pcmdstr)); 
 	ReleaseMutex(pCtrl->hInputMutex);
@@ -81,7 +84,7 @@ void ssh_writeinput(SSH_CTRL_S *pCtrl, char *pcmdstr)
 
 void ssh_readoutput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 {
-	WaitForSingleObject(pCtrl->hOutputMutex,INFINITE);
+	WaitForSingleObject(pCtrl->hOutputMutex,15000);
 
 	memset(pcmdstr, 0, maxbufferlen);
 
@@ -128,7 +131,7 @@ void ssh_readoutput(SSH_CTRL_S *pCtrl, char *pcmdstr, int maxbufferlen)
 
 void ssh_writeoutput(SSH_CTRL_S *pCtrl, char *pcmdstr)
 {
-	WaitForSingleObject(pCtrl->hOutputMutex,INFINITE);
+	WaitForSingleObject(pCtrl->hOutputMutex,15000);
 	pCtrl->szOutput[0] = '\0';
 	strncpy_s(pCtrl->szOutput, sizeof(pCtrl->szOutput)-1, pcmdstr, strlen(pcmdstr)); 
 	ReleaseMutex(pCtrl->hOutputMutex);
@@ -625,7 +628,8 @@ int ssh_runtimeInit()
         return ERR_WSA_START;
     }
     #endif /* #if 0 */
-	
+
+	dbgprint("libssh2_init...");
     rc = libssh2_init(0);
     if (rc != 0) {
         dbgprint("libssh2 initialization failed (%d)", rc);
@@ -634,6 +638,7 @@ int ssh_runtimeInit()
 		#endif /* #if 0 */
         return ERR_LIBSSH_INIT;
     }
+	dbgprint("libssh2_init...ok");
 
 	return 0;
 }
@@ -653,7 +658,9 @@ void ssh_runtimeDeInit()
 	WSACleanup( );
 	#endif /* #if 0 */
 
+	dbgprint("libssh2_exit...");
 	libssh2_exit();
+	dbgprint("libssh2_exit...ok");
 }
 
 int ssh_startsession(SSH_CTRL_S *pCtrl, char *phostname, char *pusername, char *ppasswd, unsigned short port)
@@ -676,6 +683,7 @@ int ssh_startsession(SSH_CTRL_S *pCtrl, char *phostname, char *pusername, char *
     sin.sin_family = AF_INET;
     sin.sin_port = htons(port);
     sin.sin_addr.s_addr = hostaddr;
+	dbgprint("ssh connectting...ip=%s, port=%d", phostname, port);
     if (connect(pCtrl->socket, (struct sockaddr*)(&sin), sizeof(struct sockaddr_in)) != 0) 
 	{
         dbgprint("failed to connect!");
@@ -771,8 +779,14 @@ int ssh_startsession(SSH_CTRL_S *pCtrl, char *phostname, char *pusername, char *
 	libssh2_session_set_blocking(pCtrl->pSshSession, 0);
 
 	//命令处理
+	dbgprint("ssh create thread...ip=%s, port=%d", phostname, port);
 	pCtrl->hSshThread = CreateThread(NULL, 0, ssh_sessionthread, pCtrl, 0, NULL);
-
+	if (NULL == pCtrl->hSshThread)
+	{
+		dbgprint("ssh create thread fail...ip=%s, port=%d", phostname, port);
+		return -1;
+	}
+	
 	Sleep(1000);
 	//资源在子线程退出时释放
 	return 0;
@@ -849,6 +863,8 @@ int ssh_sessioninit(char *phostname, char *pusername, char *ppasswd, unsigned sh
 	pCtrl->pSshSession = NULL;
 	pCtrl->pSshChannel = NULL;
 	pCtrl->closing = false;	
+
+	dbgprint("ssh_startsession...ip=%s, port=%d", phostname, port);
 	ret = ssh_startsession(pCtrl, phostname, pusername, ppasswd, port);
 	if (0 != ret)
 	{
@@ -956,7 +972,7 @@ int ssh_executecmd(int ctrlID, char *pcmd, char *pretstr, int maxretlen, int tim
 		
 	ssh_writeinput(pCtrl, pcmd);
 	SetEvent(pCtrl->hReqEvent);
-	//WaitForSingleObject(pCtrl->hReplyEvent, INFINITE);
+	//WaitForSingleObject(pCtrl->hReplyEvent, 15000);
 	if (WAIT_OBJECT_0 == WaitForSingleObject(pCtrl->hReplyEvent, 15*1000))
 	{
 		ssh_readoutput(pCtrl, pretstr, maxretlen);
@@ -1009,7 +1025,7 @@ int ssh_getfile(int ctrlID, char *pSrcpath, char *pDstpath, int timeout)
 		
 	ssh_writeinput(pCtrl, szGetcmd);
 	SetEvent(pCtrl->hReqEvent);
-	//WaitForSingleObject(pCtrl->hReplyEvent, INFINITE);
+	//WaitForSingleObject(pCtrl->hReplyEvent, 15000);
 	if (WAIT_OBJECT_0 == WaitForSingleObject(pCtrl->hReplyEvent, timeout))
 	{
 		return 0;
@@ -1060,7 +1076,7 @@ int ssh_putfile(int ctrlID, char *pSrcpath, char *pDstpath, int timeout)
 		
 	ssh_writeinput(pCtrl, szPutcmd);
 	SetEvent(pCtrl->hReqEvent);
-	//WaitForSingleObject(pCtrl->hReplyEvent, INFINITE);
+	//WaitForSingleObject(pCtrl->hReplyEvent, 15000);
 	if (WAIT_OBJECT_0 == WaitForSingleObject(pCtrl->hReplyEvent, timeout))
 	{
 		return 0;

@@ -5,6 +5,7 @@
 extern int  bru_ssh_login(char *ipstr, unsigned short port, int *psession);
 extern void bru_ssh_logout(int session);
 extern int bru_ssh_uploadfile(int session, char *psrc, char *pdst);
+extern int bru_ssh_downloadfile(int session, char *psrc, char *pdst);
 extern int bru_ssh_get_sn(int session, char *sn, int maxlen);
 extern int bru_ssh_get_mac(int session, char *mac, int maxlen);
 extern int bru_ssh_get_bootm(int session, int *p_bootm);

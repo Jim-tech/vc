@@ -77,6 +77,10 @@ int ssh_port_detecting(char *ipstr, unsigned short *pport)
 			{
 				closesocket(hostsock);
 				*pport = ports[i];
+
+				//wait in case system reboot by cpld
+				Sleep(20000);
+				
 				return 0;
 			}
 		}
@@ -243,6 +247,11 @@ int ssh_upgrade(char *ipstr, char *macstr, char *fwfile, unsigned short port, in
 		upgrade_msg_send(ipstr, e_ssh_info, NULL, NULL, NULL, "Éý¼¶ÖÐ");
 		
 		rc = bru_ssh_upgrade(session);
+
+		char  logfilename[256] = {0};
+		sprintf_s(logfilename, ".\\log\\%s_update.log", ipstr);
+		bru_ssh_downloadfile(session, "/tmp/updatelog", logfilename);
+		
 		if (0 != rc)
 		{
 			bru_ssh_reboot(session);
