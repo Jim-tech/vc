@@ -58,7 +58,7 @@ typedef struct dhcphdr
 }DhcpHdr_S;
 #pragma pack()
 
-#define     IPLIST_MAX_ITEM      256
+#define     IPLIST_MAX_ITEM      10240
 #define     WAIT_SECONDS         15
 
 typedef struct iplist
@@ -75,6 +75,8 @@ typedef struct iplist
 	bool                used;
 	HANDLE              hProcess;
 }IPList_S;
+
+int             g_ctrl_index_next = 0;
 
 bool 			g_thread_quiting = FALSE;
 HANDLE       	g_hIPListMutex = NULL;
@@ -115,6 +117,12 @@ typedef enum
 	e_ssh_quit_ok       = 1,
 	e_ssh_quit_fail     = 2,
 }upgrade_msg_e;
+
+typedef enum
+{
+	plat_t2k  		= 0,
+	plat_t3k  		= 1,
+}platform_e;
 
 #pragma pack(1)
 
@@ -388,7 +396,7 @@ HANDLE create_upgrade_process(int ipaddr, unsigned char mac[6])
 
 	utils_TChar2Char((TCHAR *)g_pstDlgPtr->m_imgPath.GetString(), filepath, sizeof(filepath));
 
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s %s %d", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea);
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s %s %d %d", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea, g_pstDlgPtr->m_platform_cmb.GetCurSel());
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
@@ -424,7 +432,7 @@ HANDLE create_check_process(int ipaddr, unsigned char mac[6])
 
 	utils_TChar2Char((TCHAR *)g_pstDlgPtr->m_ver.GetString(), filever, sizeof(filever));
 
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s %s %d", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea);
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s %s %d %d", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea, g_pstDlgPtr->m_platform_cmb.GetCurSel());
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
@@ -478,7 +486,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 
 			if (ipaddr == g_astIPList[i].ipaddr)
 			{
-				if (g_astIPList[i].state >= E_Done || g_astIPList[i].idletime < 15)
+				if (g_astIPList[i].state >= E_Done || g_astIPList[i].idletime < 30)
 				{
 					ReleaseMutex(g_hIPListMutex);
 					return;
@@ -707,8 +715,10 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 	else //new
 	{
 		/*将搜索到的IP添加到队列  */
-		for (i = 0; i < IPLIST_MAX_ITEM; i++)
+		for (int j = 0; j < IPLIST_MAX_ITEM;  j++)
 		{
+			i = (g_ctrl_index_next + j) % IPLIST_MAX_ITEM;
+			
 			if (TRUE != g_astIPList[i].used)
 			{
 				g_astIPList[i].ipaddr = ipaddr;
@@ -725,6 +735,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 			}
 		}
 
+		g_ctrl_index_next++;
 		dbgprint("new dut start, ip=%s, state=%d ", ipstring, g_astIPList[i].state);
 	}
 
@@ -1056,6 +1067,7 @@ void CBatchUpDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_VER, m_ver);
 	DDX_Control(pDX, IDC_COMBO_NET, m_netcardCtrl);
 	DDX_Check(pDX, IDC_CHECK_TYPE, m_doublearea);
+	DDX_Control(pDX, IDC_COMBO_PLATFORM, m_platform_cmb);
 }
 
 BEGIN_MESSAGE_MAP(CBatchUpDlg, CDialogEx)
@@ -1260,6 +1272,10 @@ BOOL CBatchUpDlg::OnInitDialog()
 
 	m_doublearea = TRUE;
 
+	m_platform_cmb.InsertString(plat_t2k, _T("T2K"));
+	m_platform_cmb.InsertString(plat_t3k, _T("T3K"));
+	m_platform_cmb.SetCurSel(0);
+
 	CreateDirectory(_T("log"), 0);
 	
 	SetTimer(UPDATE_UI_TIMER, 1000, 0);
@@ -1433,6 +1449,8 @@ void CBatchUpDlg::OnBnClickedButtonStart()
 	GetDlgItem(IDC_EDIT_VER)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(TRUE);
 	GetDlgItem(IDC_CHECK_TYPE)->EnableWindow(FALSE);
+	GetDlgItem(IDC_COMBO_PLATFORM)->EnableWindow(FALSE);
+	
 	goto Quit_On_OK;
 
 Quit_On_Fail:
@@ -1512,7 +1530,8 @@ void CBatchUpDlg::OnBnClickedButtonStop()
 	GetDlgItem(IDC_EDIT_VER)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 	GetDlgItem(IDC_CHECK_TYPE)->EnableWindow(TRUE);
-
+	GetDlgItem(IDC_COMBO_PLATFORM)->EnableWindow(TRUE);
+	
 	dbgprint("user force stop....quit");
 }
 void CBatchUpDlg::OnClickedTypeCheckBox()

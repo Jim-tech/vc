@@ -51,4 +51,5 @@ public:
 	HANDLE          m_pArpThread;
 	HANDLE          m_pProcessThread;
 	BOOL            m_doublearea;
+	CComboBox       m_platform_cmb;
 };

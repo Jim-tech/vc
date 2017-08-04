@@ -11,22 +11,27 @@
 #define new DEBUG_NEW
 #endif
 
-typedef enum
-{
-	TYPE_MBS1xxx   = 0,
-	TYPE_BRU3xxx   = 1
-}MODULE_TYPE_E;
-
-typedef enum
-{
-	MODE_TDD   = 0,
-	MODE_FDD   = 1
-}DUPLEX_MODE_E;
-
 #define MODULE_TYPE_ADDR        0x6964
 #define MODULE_TYPE_LEN         16
+#define DL_FREQ_MIN             0x6984
+#define DL_FREQ_MAX             0x6988
+#define UL_FREQ_MIN             0x698C
+#define UL_FREQ_MAX             0x6990
 #define HWCAP_ADDR              0x6994
-#define HWCAP_LEN               4
+
+
+typedef struct
+{
+	char     		moduleType[MODULE_TYPE_LEN+1];
+	unsigned int	dl_min;
+	unsigned int	dl_max;
+	unsigned int	ul_min;
+	unsigned int	ul_max;
+	unsigned int	hwcap;
+}ModuleList_S;
+
+#define  MAX_MODULE_TYPE  128
+ModuleList_S g_moduleList[MAX_MODULE_TYPE] = { 0 };
 
 // CAboutDlg dialog used for App About
 
@@ -73,7 +78,6 @@ CeepromsetDlg::CeepromsetDlg(CWnd* pParent /*=NULL*/)
 void CeepromsetDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_COMBO_MODE, m_comboMode);
 	DDX_Control(pDX, IDC_COMBO_TYPE, m_comboType);
 	DDX_Text(pDX, IDC_EDIT_PATH, m_strFilePath);
 }
@@ -89,6 +93,28 @@ END_MESSAGE_MAP()
 
 
 // CeepromsetDlg message handlers
+void utils_TChar2Char(TCHAR *pIn, char *pOut, int maxlen)
+{
+	int len = WideCharToMultiByte(CP_ACP, 0, pIn, -1, NULL, 0, NULL, NULL);
+	if (len >= maxlen)
+	{
+		len = maxlen;
+	}
+
+	WideCharToMultiByte(CP_ACP, 0, pIn, -1, pOut, len, NULL, NULL);
+}
+
+void utils_Char2Tchar(char *pIn, TCHAR *pOut, int maxlen)
+{
+	int len = MultiByteToWideChar(CP_ACP, 0, pIn, strlen(pIn) + 1, NULL, 0);
+	if (len >= maxlen)
+	{
+		len = maxlen;
+	}
+
+	MultiByteToWideChar(CP_ACP, 0, pIn, strlen(pIn) + 1, pOut, len);
+}
+
 
 BOOL CeepromsetDlg::OnInitDialog()
 {
@@ -120,13 +146,43 @@ BOOL CeepromsetDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
-	m_comboMode.AddString(_T("TDD"));
-	m_comboMode.AddString(_T("FDD"));
-	m_comboMode.SetCurSel(MODE_TDD);
+	memset(g_moduleList, 0xFF, sizeof(g_moduleList));
+	for (int i = 0; i < MAX_MODULE_TYPE; i++)
+	{
+		memset(g_moduleList[i].moduleType, 0, sizeof(g_moduleList[i].moduleType));
+	}
 
-	m_comboType.AddString(_T("mBS1"));
-	m_comboType.AddString(_T("BRU3"));
-	m_comboType.SetCurSel(TYPE_MBS1xxx);
+	TCHAR strpwd[1024];
+
+	::GetCurrentDirectory(sizeof(strpwd), strpwd);
+	StrCatW(strpwd, _T("\\config.ini"));
+
+	TCHAR  szSections[1024] = {0};
+	int secsize = GetPrivateProfileSectionNames(szSections, sizeof(szSections), strpwd);
+
+	int  offset = 0;
+	int  cnt = 0;
+	while (0 != lstrlenW(&szSections[offset]))
+	{
+		wprintf(_T("%s\n"), &szSections[offset]);
+
+		m_comboType.AddString(&szSections[offset]);
+
+		utils_TChar2Char(&szSections[offset], g_moduleList[cnt].moduleType, sizeof(g_moduleList[cnt].moduleType));
+		g_moduleList[cnt].moduleType[MODULE_TYPE_LEN] = '\0';
+		
+		g_moduleList[cnt].dl_min = GetPrivateProfileInt(&szSections[offset], _T("dlmin"), -1, strpwd);
+		g_moduleList[cnt].dl_max = GetPrivateProfileInt(&szSections[offset], _T("dlmax"), -1, strpwd);
+		g_moduleList[cnt].ul_min = GetPrivateProfileInt(&szSections[offset], _T("ulmin"), -1, strpwd);
+		g_moduleList[cnt].ul_max = GetPrivateProfileInt(&szSections[offset], _T("ulmax"), -1, strpwd);
+		g_moduleList[cnt].hwcap = GetPrivateProfileInt(&szSections[offset], _T("hwcap"), -1, strpwd);
+
+		cnt++;
+
+		offset += lstrlenW(szSections) + 1;
+	}
+
+	m_comboType.SetCurSel(0);
 
 	m_strFilePath = _T("");
 	
@@ -198,47 +254,26 @@ void CeepromsetDlg::OnBnClickedOk()
 	}
 
 	int type = m_comboType.GetCurSel();
-	int mode = m_comboMode.GetCurSel();
 
 	char szbuffer[0x10000] = { 0xFF };
 	CFile hFile(m_strFilePath, CFile::modeReadWrite);
 	hFile.Read(szbuffer, sizeof(szbuffer));
 
-	switch (type)
-	{
-		case TYPE_MBS1xxx:
-			sprintf_s(&(szbuffer[MODULE_TYPE_ADDR]), MODULE_TYPE_LEN, "mBS1xxx");
-			break;
-		case TYPE_BRU3xxx:
-			sprintf_s(&(szbuffer[MODULE_TYPE_ADDR]), MODULE_TYPE_LEN, "BRU3xxx");
-			break;
-		default:
-			goto OnFail;
-	}
-
-	switch (mode)
-	{
-		case MODE_TDD:
-			*(int *)&(szbuffer[HWCAP_ADDR]) = 0xA0000001;
-			break;
-		case MODE_FDD:
-			*(int *)&(szbuffer[HWCAP_ADDR]) = 0xA0000002;
-			break;
-		default:
-			goto OnFail;
-	}
+	sprintf_s(&(szbuffer[MODULE_TYPE_ADDR]), MODULE_TYPE_LEN, g_moduleList[type].moduleType);
+	*(int *)&(szbuffer[DL_FREQ_MIN]) = g_moduleList[type].dl_min;
+	*(int *)&(szbuffer[DL_FREQ_MAX]) = g_moduleList[type].dl_max;
+	*(int *)&(szbuffer[UL_FREQ_MIN]) = g_moduleList[type].ul_min;
+	*(int *)&(szbuffer[UL_FREQ_MAX]) = g_moduleList[type].ul_max;
+	*(int *)&(szbuffer[HWCAP_ADDR]) = g_moduleList[type].hwcap;
 
 	hFile.SeekToBegin();
 	hFile.Write(szbuffer, sizeof(szbuffer));
 	hFile.Flush();
 	hFile.Close();
 	MessageBox(_T("保存OK"));
+
 	return;
-	
-OnFail:
-	hFile.Close();
-	MessageBox(_T("处理出错"));
-	return;
+
 }
 
 

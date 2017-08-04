@@ -428,7 +428,7 @@ int bru_ssh_get_curr_version(int session, int bootm, char *version, int maxlen)
 	int   ret = 0;
 	char  sz_resp[1024] = {0};
 
-	ret = ssh_executecmd(session, "cat /etc/banner | grep 'V...R...C..B...' | awk '{print $NF}'", sz_resp, sizeof(sz_resp), 1000);
+	ret = ssh_executecmd(session, "cat /etc/banner | grep 'V...R......B...' | awk '{print $NF}'", sz_resp, sizeof(sz_resp), 1000);
 	if (0 != ret)
 	{
 		dbgprint("get version fail ret=%d", ret);
@@ -519,7 +519,7 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 		Sleep(1000);
 		cnt++;
 		
-		sprintf_s(sz_req, "cat /tmp/__backfs/etc/banner | grep 'V...R...C..B...' | awk '{print $NF}'");
+		sprintf_s(sz_req, "cat /tmp/__backfs/etc/banner | grep 'V...R......B...' | awk '{print $NF}'");
 		ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 1000);
 		if (0 != ret)
 		{

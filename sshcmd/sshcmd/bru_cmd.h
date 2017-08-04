@@ -1,6 +1,11 @@
 #ifndef __BRU_CMD_H__
 #define __BRU_CMD_H__
 
+typedef enum
+{
+	plat_t2k  		= 0,
+	plat_t3k  		= 1,
+}platform_e;
 
 extern int  bru_ssh_login(char *ipstr, unsigned short port, int *psession);
 extern void bru_ssh_logout(int session);

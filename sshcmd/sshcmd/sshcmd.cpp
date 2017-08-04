@@ -10,10 +10,14 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#define SSH_UPGRADE_VER          "v1.6.4"
+
 #define SSH_PORT_LIST            {22, 27149}
 #define PORT_DETECT_MAX_RETRY    60
 
 FILE           *fplog = NULL;
+
+platform_e g_platform = plat_t2k;
 
 typedef enum
 {
@@ -382,10 +386,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	unsigned short 	port = 22;
 	WSADATA 		wsadata;
 
-	if (argc < 6)
+	if (argc < 7)
 	{
-		dbgprint("usage: sshupgrade upgrade ipaddr macaddr fw doublearea");
-		dbgprint("usage: sshupgrade check   ipaddr macaddr fwver doublearea");
+		dbgprint("sshupgrade: version %s", SSH_UPGRADE_VER);
+		
+		dbgprint("usage: sshupgrade upgrade ipaddr macaddr fw doublearea platform");
+		dbgprint("usage: sshupgrade check   ipaddr macaddr fwver doublearea platform");
 		return -1;
 	}
 
@@ -395,6 +401,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		macstr = argv[3];
 		fwfile = argv[4];
 		doublecheck = atoi(argv[5]);
+		g_platform = (platform_e)atoi(argv[6]);
 	}
 	else if (0 == strcmp("check", argv[1]))
 	{
@@ -402,6 +409,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		macstr = argv[3];
 		fwver= argv[4];
 		doublecheck = atoi(argv[5]);
+		g_platform = (platform_e)atoi(argv[6]);
 	}
 	else
 	{

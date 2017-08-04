@@ -1,8 +1,10 @@
 #include "stdafx.h"
 #include "windows.h"
 #include "ssh.h"
+#include "bru_cmd.h"
 
 extern FILE           *fplog;
+extern platform_e      g_platform;
 
 int bru_ssh_login(char *ipstr, unsigned short port, int *psession)
 {
@@ -40,10 +42,15 @@ int bru_ssh_login(char *ipstr, unsigned short port, int *psession)
 			ssh_executecmd(session, "start-shell", sz_resp, sizeof(sz_resp), 500);
 			ssh_executecmd(session, "sudo su -", sz_resp, sizeof(sz_resp), 500);
 
+			#if  1
 			ssh_executecmd(session, "cp -rf /etc/ssh/sshd_config /tmp/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 			ssh_executecmd(session, "sed -i \"s/PermitRootLogin no/#PermitRootLogin no/g\" /tmp/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 			ssh_executecmd(session, "sed -i \"s/Port 27149/Port 22/g\" /tmp/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 			ssh_executecmd(session, "/usr/sbin/sshd -f /tmp/sshd_config 2>&1 >/dev/null", sz_resp, sizeof(sz_resp), 1000);
+			#else
+			ssh_executecmd(session, "sed -i \"s/PermitRootLogin no/#PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+			ssh_executecmd(session, "/etc/init.d/sshd restart", sz_resp, sizeof(sz_resp), 1000);
+			#endif /* #if 0 */
 
 			ssh_sessiondeinit(session);
 			Sleep(2000);
@@ -311,7 +318,7 @@ int bru_ssh_get_curr_version(int session, int bootm, char *version, int maxlen)
 	int   ret = 0;
 	char  sz_resp[1024] = {0};
 
-	ret = ssh_executecmd(session, "cat /etc/banner | grep 'V...R...C..B...' | awk '{print $NF}'", sz_resp, sizeof(sz_resp), 2000);
+	ret = ssh_executecmd(session, "cat /etc/banner | grep 'V...R......B...' | awk '{print $NF}'", sz_resp, sizeof(sz_resp), 2000);
 	if (0 != ret)
 	{
 		dbgprint("get version fail ret=%d", ret);
@@ -332,11 +339,34 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 	char  mtdname[32] = {0};
 	if (0 == (bootm & 1)) //当前mtd6, 备区mtd8
 	{
-		sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock8");
+		if (plat_t2k == g_platform)
+		{
+			sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock8");
+		}
+		else if (plat_t3k == g_platform)
+		{
+			sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock5");
+		}
+		else
+		{
+			dbgprint("invalid platform type=%d", g_platform);
+			return -1;
+		}
 	}
 	else
 	{
-		sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock6");
+		if (plat_t2k == g_platform)
+		{
+			sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock6");
+		}
+		else if (plat_t3k == g_platform)
+		{
+			sprintf_s(mtdname, sizeof(mtdname), "/dev/mtdblock3");
+		}
+		else
+		{
+			dbgprint("invalid platform type=%d", g_platform);
+		}
 	}
 
 	ssh_executecmd(session, "mkdir -p /tmp/__backfs", sz_resp, sizeof(sz_resp), 500);
@@ -404,7 +434,7 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 		Sleep(1000);
 		cnt++;
 		
-		sprintf_s(sz_req, "cat /tmp/__backfs/etc/banner | grep 'V...R...C..B...' | awk '{print $NF}'");
+		sprintf_s(sz_req, "cat /tmp/__backfs/etc/banner | grep 'V...R......B...' | awk '{print $NF}'");
 		ret = ssh_executecmd(session, sz_req, sz_resp, sizeof(sz_resp), 2000);
 		if (0 != ret)
 		{
@@ -420,6 +450,9 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 		return -1;
 	}
 
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /tmp/__backfs/etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
+
 	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 500);
 	Sleep(500);
 	ssh_executecmd(session, "/tmp/ledctrl 1000000 2>&1 >/dev/null &", sz_resp, sizeof(sz_resp), 500);
@@ -429,6 +462,8 @@ int bru_ssh_checkback(int session, int bootm, char *version)
 void bru_ssh_complete(int session)
 {
 	char  sz_resp[1024] = {0};
+
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 	
 	ssh_executecmd(session, "chmod 777 /tmp/ledctrl", sz_resp, sizeof(sz_resp), 500);
 	Sleep(500);
@@ -440,6 +475,7 @@ void bru_ssh_reboot(int session)
 {
 	char  sz_resp[1024] = {0};
 
+	ssh_executecmd(session, "sed -i \"s/#PermitRootLogin no/PermitRootLogin no/g\" /etc/ssh/sshd_config", sz_resp, sizeof(sz_resp), 1000);
 	Sleep(1000);
 	ssh_executecmd(session, "reboot", sz_resp, sizeof(sz_resp), 500);
 	Sleep(1000);
