@@ -39,6 +39,9 @@ public:
 	afx_msg void OnBnClickedButtonStop();
 	afx_msg void OnClickedTypeCheckBox();
 	afx_msg void OnSelchangeComboNet();
+	afx_msg void OnLvnColumnclickListUp(NMHDR *pNMHDR, LRESULT *pResult);    
+	afx_msg void OnNMRClickListUp(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnCopy2ClipBoard();    
     afx_msg void OnTimer(UINT nIDEvent);
 	afx_msg void OnDestroy();
 
@@ -52,4 +55,6 @@ public:
 	HANDLE          m_pProcessThread;
 	BOOL            m_doublearea;
 	CComboBox       m_platform_cmb;
+    int             m_list_clickedCol;
+    BOOL            m_sortorder_inc;
 };

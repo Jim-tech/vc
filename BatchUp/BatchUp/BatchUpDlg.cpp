@@ -381,6 +381,8 @@ void UpdateProgress(upgrade_msg_s *pmsg)
 	{
 		g_pstDlgPtr->m_listCtrl.SetItemColor(item_index, RGB(0, 0, 0), RGB(0xff, 0xff, 0xff));	
 	}
+
+	g_pstDlgPtr->m_listCtrl.EnsureVisible(item_index, true);
 }
 
 HANDLE create_upgrade_process(int ipaddr, unsigned char mac[6])
@@ -1084,6 +1086,9 @@ BEGIN_MESSAGE_MAP(CBatchUpDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CHECK_TYPE, &CBatchUpDlg::OnClickedTypeCheckBox)
 	ON_WM_SIZING()
 	ON_CBN_SELCHANGE(IDC_COMBO_NET, &CBatchUpDlg::OnSelchangeComboNet)
+	ON_NOTIFY(LVN_COLUMNCLICK, IDC_LIST_UP, &CBatchUpDlg::OnLvnColumnclickListUp)
+	ON_NOTIFY(NM_RCLICK, IDC_LIST_UP, &CBatchUpDlg::OnNMRClickListUp)
+	ON_COMMAND(ID_COPY_OUT, &CBatchUpDlg::OnCopy2ClipBoard)
 END_MESSAGE_MAP()
 
 
@@ -1271,6 +1276,7 @@ BOOL CBatchUpDlg::OnInitDialog()
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 
 	m_doublearea = TRUE;
+	m_sortorder_inc = FALSE;
 
 	m_platform_cmb.InsertString(plat_t2k, _T("T2K"));
 	m_platform_cmb.InsertString(plat_t3k, _T("T3K"));
@@ -1279,6 +1285,33 @@ BOOL CBatchUpDlg::OnInitDialog()
 	CreateDirectory(_T("log"), 0);
 	
 	SetTimer(UPDATE_UI_TIMER, 1000, 0);
+
+
+	#if  0
+	g_astIPList[0].used = 1;
+	g_astIPList[0].ipaddr = 0;
+	g_astIPList[0].state = E_Done;
+	upgrade_msg_s stmsg;
+	stmsg.ipaddr = 0;
+	sprintf_s(stmsg.snstr, sizeof(stmsg.snstr), "1202000050173HP0010");
+	sprintf_s(stmsg.macstr, sizeof(stmsg.macstr), "001520200101");
+	sprintf_s(stmsg.verstr, sizeof(stmsg.verstr), "BRS_V100R001C00B004_ATE_4239@170712");
+	sprintf_s(stmsg.process, sizeof(stmsg.process), "ok");
+	stmsg.msgtype = 1;
+	UpdateProgress(&stmsg);
+
+	g_astIPList[1].used = 1;
+	g_astIPList[1].ipaddr = 1;
+	g_astIPList[1].state = E_Done;
+	stmsg.ipaddr = 1;
+	sprintf_s(stmsg.snstr, sizeof(stmsg.snstr), "1202000050173HP0011");
+	sprintf_s(stmsg.macstr, sizeof(stmsg.macstr), "001520200102");
+	sprintf_s(stmsg.verstr, sizeof(stmsg.verstr), "BRS_V100R001C00B004_ATE_4239@170713");
+	sprintf_s(stmsg.process, sizeof(stmsg.process), "ok");
+	stmsg.msgtype = 1;
+	UpdateProgress(&stmsg);
+	
+	#endif /* #if 1 */
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -1729,4 +1762,110 @@ void CBatchUpDlg::OnSizing(UINT fwSide, LPRECT pRect)
 	CDialogEx::OnSizing(fwSide, pRect);
 
 	// TODO: Add your message handler code here
+}
+
+static int CALLBACK MyCompareProc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
+{
+	int row1 = (int) lParam1;
+	int row2 = (int) lParam2;
+
+	CColorListCtrl* lc = (CColorListCtrl*)lParamSort;
+	CString lp1 = lc->GetItemText(row1, g_pstDlgPtr->m_list_clickedCol);
+	CString lp2 = lc->GetItemText(row2, g_pstDlgPtr->m_list_clickedCol);
+
+	if (g_pstDlgPtr->m_sortorder_inc)
+		return lp1.CompareNoCase(lp2);
+	else
+		return lp2.CompareNoCase(lp1);
+}
+
+void CBatchUpDlg::OnLvnColumnclickListUp(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	// TODO: Add your control notification handler code here
+
+	m_list_clickedCol = pNMLV->iSubItem;//点击的列
+
+	int count = m_listCtrl.GetItemCount();
+	for (int i = 0; i<count; i++)
+	{
+		m_listCtrl.SetItemData(i, i);
+	}
+
+	m_listCtrl.SortItems(MyCompareProc, (DWORD_PTR)&m_listCtrl);
+
+	if (m_sortorder_inc)
+		m_sortorder_inc = false;
+	else
+		m_sortorder_inc = true;
+	
+	*pResult = 0;	
+}
+
+
+void CBatchUpDlg::OnNMRClickListUp(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	// TODO: Add your control notification handler code here
+	*pResult = 0;
+
+	if (m_listCtrl.GetSelectedCount() <= 0)
+	{
+		return;
+	}
+
+	CMenu menu, *pPopup;
+	menu.LoadMenu(IDR_MENU_COPY);
+	pPopup = menu.GetSubMenu(0);
+	CPoint myPoint;
+	ClientToScreen(&myPoint);
+	GetCursorPos(&myPoint); //鼠标位置  
+	pPopup->TrackPopupMenu(TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RIGHTBUTTON, myPoint.x, myPoint.y, this);
+
+}
+
+
+void CBatchUpDlg::OnCopy2ClipBoard()
+{
+	// TODO: Add your command handler code here
+	CString str;
+
+	str = _T("");
+	POSITION pos = m_listCtrl.GetFirstSelectedItemPosition(); //pos选中的首行位置
+	while (pos) //如果选择多行
+	{
+		int nIdx = -1;
+
+		nIdx = m_listCtrl.GetNextSelectedItem(pos);
+
+		if (nIdx >= 0 && nIdx < m_listCtrl.GetItemCount())
+		{
+			for (int col = HD_ID; col <= HD_PROGRESS; col++)
+			{
+				str += m_listCtrl.GetItemText(nIdx, col);
+				str += _T("\t");
+			}
+			str += _T("\r\n");
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (OpenClipboard())
+	{
+		EmptyClipboard();
+		HGLOBAL hClip = GlobalAlloc(GMEM_MOVEABLE, (str.GetLength() + 1)*sizeof(TCHAR));
+		if (hClip)
+		{
+			LPTSTR lptstrCopy = (LPTSTR)GlobalLock(hClip);
+			memcpy(lptstrCopy, str.GetString(), str.GetLength() * sizeof(TCHAR));
+			lptstrCopy[str.GetLength()] = (TCHAR)0;
+			GlobalUnlock(hClip);
+		}
+
+		SetClipboardData(CF_UNICODETEXT, hClip);
+		CloseClipboard();
+	}
 }
