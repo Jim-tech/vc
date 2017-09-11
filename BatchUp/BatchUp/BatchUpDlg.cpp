@@ -568,7 +568,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 				if (4 == v_len)
 				{
 					ipaddr = *(DWORD *)&szpkt[offset + 2];
-					ipaddr = htonl(ipaddr);
+					ipaddr = ntohl(ipaddr);
 					dhcp = TRUE;
 				}
 			}			
@@ -1480,6 +1480,7 @@ void CBatchUpDlg::OnBnClickedButtonStart()
 	GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
 	GetDlgItem(IDC_COMBO_NET)->EnableWindow(FALSE);
 	GetDlgItem(IDC_EDIT_VER)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_FILE)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(TRUE);
 	GetDlgItem(IDC_CHECK_TYPE)->EnableWindow(FALSE);
 	GetDlgItem(IDC_COMBO_PLATFORM)->EnableWindow(FALSE);
@@ -1562,6 +1563,7 @@ void CBatchUpDlg::OnBnClickedButtonStop()
 	GetDlgItem(IDC_COMBO_NET)->EnableWindow(TRUE);
 	GetDlgItem(IDC_EDIT_VER)->EnableWindow(TRUE);
 	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_FILE)->EnableWindow(TRUE);
 	GetDlgItem(IDC_CHECK_TYPE)->EnableWindow(TRUE);
 	GetDlgItem(IDC_COMBO_PLATFORM)->EnableWindow(TRUE);
 	
