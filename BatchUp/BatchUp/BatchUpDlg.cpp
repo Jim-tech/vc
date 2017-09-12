@@ -12,6 +12,12 @@
 
 #pragma comment(lib,"IPHlpApi.lib")
 
+#pragma warning (disable: 4146)
+#import "c://Program Files (x86)//Common Files//system//ado//msadox.dll"
+//#import "c://Program Files (x86)//Common Files//system//ado//msado15.dll" no_namespace rename ("EOF", "adoEOF")    
+#import "c://Program Files (x86)//Common Files//system//ado//msado15.dll" no_namespace rename ("EOF", "adoEOF")
+#pragma warning (default: 4146)
+
 #if  0
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -157,6 +163,161 @@ typedef struct
 	unsigned int   targetip;
 }arp_pkt_s;
 #pragma pack()
+
+_ConnectionPtr g_pConnection = NULL;
+
+int DB_Init()
+{
+	//read database config from config.ini
+	TCHAR  sztype[64] = {0};
+	TCHAR  szsqlserv[64] = {0};
+	TCHAR  szdbname[64] = {0};
+	TCHAR  szuser[64] = {0};
+	TCHAR  szpasswd[64] = {0};
+	CString strdbcmd;
+
+	//初始化配置文件路径
+	TCHAR szCfgDir[512];
+	TCHAR szCfgIniPath[1024];
+	::GetCurrentDirectory(sizeof(szCfgDir), szCfgDir);
+	wsprintf(szCfgIniPath, _T("%s\\config.ini"), szCfgDir);
+	
+	GetPrivateProfileString(_T("database"), _T("type"), _T("local"), sztype, sizeof(sztype), szCfgIniPath);
+	if (0 == _tcscmp(_T("local"), sztype))
+	{
+		GetPrivateProfileString(_T("database"), _T("localdb"), _T(""), szdbname, sizeof(szdbname), szCfgIniPath);
+		strdbcmd.Format(_T("Provider=Microsoft.Jet.OLEDB.4.0;Data Source=%s;"), szdbname);
+	}
+	else if (0 == _tcscmp(_T("remote"), sztype))
+	{
+		GetPrivateProfileString(_T("database"), _T("sqlserver"), _T(""), szsqlserv, sizeof(szsqlserv), szCfgIniPath);
+		GetPrivateProfileString(_T("database"), _T("remotedb"), _T(""), szdbname, sizeof(szdbname), szCfgIniPath);
+		GetPrivateProfileString(_T("database"), _T("username"), _T(""), szuser, sizeof(szuser), szCfgIniPath);
+		GetPrivateProfileString(_T("database"), _T("passwd"), _T(""), szpasswd, sizeof(szpasswd), szCfgIniPath);
+		strdbcmd.Format(_T("Provider=SQLOLEDB;Server=%s;Database=%s;Uid=%s;Pwd=%s;"), szsqlserv, szdbname, szuser, szpasswd);
+	}
+	else
+	{
+		AfxMessageBox(_T("config.ini中database的类型只能是local或者remote"));
+		return -1;
+	}
+
+	wprintf(strdbcmd);
+	
+	/*connect  */
+	try
+	{
+		g_pConnection.CreateInstance(__uuidof(Connection));
+		g_pConnection->Open(strdbcmd.GetString(), "", "", adConnectUnspecified);
+
+		return 0;
+	}
+	catch (_com_error &e)
+	{
+		CString strlog;
+		strlog = (LPCSTR)e.Description();
+		wprintf(strlog);
+		return -1;
+	}
+
+	printf("connect database ok\n");
+	return 0;
+}
+
+void DB_DeInit()
+{
+	try
+	{
+		if (g_pConnection->State)
+		{
+			g_pConnection->Close();
+			g_pConnection.Release();
+		}
+	}
+	catch (_com_error &e)
+	{
+		CString strlog;
+		strlog = (LPCSTR)e.Description();
+		wprintf(strlog);
+	}
+
+	return;
+}
+
+int DB_Insert(_variant_t szVals[], int ValCnt)
+{
+	int  ret;
+
+	try
+	{
+		_RecordsetPtr m_pRecordset;
+		m_pRecordset.CreateInstance(__uuidof(Recordset));
+		
+		TCHAR szSqlCmd[1024];
+		wsprintf(szSqlCmd, _T("SELECT * FROM BatchUpgrade"));
+
+		m_pRecordset->Open(szSqlCmd, g_pConnection.GetInterfacePtr(), adOpenStatic, adLockOptimistic, adCmdText);
+
+		if (ValCnt != m_pRecordset->GetFields()->Count)
+		{
+			//dbgprint("ValCnt=%d m_pRecordset->GetFields()->Count=%d\n", ValCnt, m_pRecordset->GetFields()->Count);
+			CString strlog;
+			strlog.Format(_T("表字段数不正确，表字段[%d], 插入的字段[%d]"), m_pRecordset->GetFields()->Count, ValCnt);
+			wprintf(strlog);
+			
+			ret = -1;
+		}
+		else
+		{
+			ret = 0;
+			m_pRecordset->AddNew();
+
+			for (int i = 0; i < ValCnt; i++)
+			{
+				//dbgprint("i=%d \n", i);
+				m_pRecordset->PutCollect(_variant_t((long)i), szVals[i]);
+			}
+
+			m_pRecordset->Update();
+		}		
+		Sleep(50 * ValCnt);
+		m_pRecordset->Close();
+		m_pRecordset.Release();
+	}
+	catch (_com_error &e)
+	{
+		CString strlog;
+		strlog = (LPCSTR)e.Description();
+		wprintf(strlog);
+		return -1;
+	}
+
+	return ret;
+}
+
+int DB_UpgradeResult(IPList_S *pstInfo)
+{
+	char curtime[256] = {0};
+	CTime curr = CTime::GetCurrentTime();
+	
+	sprintf_s(curtime, sizeof(curtime), "%04d-%02d-%02d %02d:%02d:%02d",
+		curr.GetYear(), curr.GetMonth(), curr.GetDay(), 
+		curr.GetHour(), curr.GetMinute(), curr.GetSecond());
+
+	_variant_t szVals[] =
+	{
+		(_variant_t)pstInfo->szsn,
+		(_variant_t)pstInfo->szmac,
+		(_variant_t)pstInfo->szversion,
+		(_variant_t)curtime,
+		(_variant_t)((plat_t3k == g_pstDlgPtr->m_platform_cmb.GetCurSel()) ? "T3K" : "T2K"),
+		(_variant_t)((1 == g_pstDlgPtr->m_doublearea) ? "True" : "False")
+	};
+
+	DB_Insert(szVals, sizeof(szVals) / sizeof(_variant_t));
+
+	return 0;
+}
 
 void utils_TChar2Char(TCHAR *pIn, char *pOut, int maxlen)
 {
@@ -327,6 +488,7 @@ void UpdateProgress(upgrade_msg_s *pmsg)
 				pstInfo->state = E_Done;
 				pstInfo->used = FALSE;
 				done = TRUE;
+				DB_UpgradeResult(pstInfo);
 			}
 		}
 		else
@@ -340,6 +502,7 @@ void UpdateProgress(upgrade_msg_s *pmsg)
 				pstInfo->state = E_Done;
 				pstInfo->used = FALSE;
 				done = TRUE;
+				DB_UpgradeResult(pstInfo);
 			}
 		}
 		break;
@@ -991,6 +1154,7 @@ DWORD WINAPI thread_process(LPVOID lpParameter)
 	return 0;
 }
 
+
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -1037,19 +1201,16 @@ CBatchUpDlg::CBatchUpDlg(CWnd* pParent /*=NULL*/)
 
 	fopen_s(&fplog, "batchup.log", "a+");
 
-#ifdef _DEBUG  
-	//AllocConsole();
-#endif	
-
 	g_pstDlgPtr = this;
+
+	if (0 != DB_Init())
+	{
+		MessageBox(_T("初始化数据库失败"));
+	}
 }
 
 CBatchUpDlg::~CBatchUpDlg()
 {
-#ifdef _DEBUG  
-	//FreeConsole();
-#endif	
-
 	if (NULL != fplog)
 	{
 		fclose(fplog);
@@ -1058,6 +1219,7 @@ CBatchUpDlg::~CBatchUpDlg()
 	
 	g_pstDlgPtr = NULL;
 	
+	DB_DeInit();
 }
 
 void CBatchUpDlg::DoDataExchange(CDataExchange* pDX)
@@ -1096,6 +1258,9 @@ END_MESSAGE_MAP()
 
 BOOL CBatchUpDlg::OnInitDialog()
 {
+	CreateDirectory(_T("Log"), 0);
+	CreateDirectory(_T("Data"), 0);
+	
 	CDialogEx::OnInitDialog();
 
 	// Add "About..." menu item to system menu.
@@ -1787,12 +1952,6 @@ void CBatchUpDlg::OnLvnColumnclickListUp(NMHDR *pNMHDR, LRESULT *pResult)
 	// TODO: Add your control notification handler code here
 
 	m_list_clickedCol = pNMLV->iSubItem;//点击的列
-
-	int count = m_listCtrl.GetItemCount();
-	for (int i = 0; i<count; i++)
-	{
-		m_listCtrl.SetItemData(i, i);
-	}
 
 	m_listCtrl.SortItems(MyCompareProc, (DWORD_PTR)&m_listCtrl);
 

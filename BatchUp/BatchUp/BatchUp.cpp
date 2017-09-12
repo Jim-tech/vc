@@ -68,7 +68,16 @@ BOOL CBatchUpApp::InitInstance()
 	// Change the registry key under which our settings are stored
 	// TODO: You should modify this string to be something appropriate
 	// such as the name of your company or organization
-	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
+	SetRegistryKey(_T("北京佰才邦技术有限公司"));
+
+	//初始化com组件
+	//HRESULT hr = ::CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	HRESULT hr = ::CoInitialize(NULL);
+	if (FAILED(hr))
+	{
+		AfxMessageBox(_T("COM组件初始化失败"), MB_OK|MB_ICONSTOP);
+		return FALSE;
+	}
 
 	CBatchUpDlg dlg;
 	m_pMainWnd = &dlg;
@@ -94,6 +103,9 @@ BOOL CBatchUpApp::InitInstance()
 	{
 		delete pShellManager;
 	}
+
+	//com组件去初始化
+	::CoUninitialize();			
 
 	// Since the dialog has been closed, return FALSE so that we exit the
 	//  application, rather than start the application's message pump.
