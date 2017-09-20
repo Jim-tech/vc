@@ -160,6 +160,8 @@ BOOL CeepromsetDlg::OnInitDialog()
 	TCHAR  szSections[1024] = {0};
 	int secsize = GetPrivateProfileSectionNames(szSections, sizeof(szSections), strpwd);
 
+	wprintf(_T("list=%s secsize=%d\n"), szSections, secsize);
+
 	int  offset = 0;
 	int  cnt = 0;
 	while (0 != lstrlenW(&szSections[offset]))
@@ -179,7 +181,7 @@ BOOL CeepromsetDlg::OnInitDialog()
 
 		cnt++;
 
-		offset += lstrlenW(szSections) + 1;
+		offset += lstrlenW(&szSections[offset]) + 1;
 	}
 
 	m_comboType.SetCurSel(0);
@@ -258,6 +260,7 @@ void CeepromsetDlg::OnBnClickedOk()
 	char szbuffer[0x10000] = { 0xFF };
 	CFile hFile(m_strFilePath, CFile::modeReadWrite);
 	hFile.Read(szbuffer, sizeof(szbuffer));
+	hFile.Close();
 
 	sprintf_s(&(szbuffer[MODULE_TYPE_ADDR]), MODULE_TYPE_LEN, g_moduleList[type].moduleType);
 	*(int *)&(szbuffer[DL_FREQ_MIN]) = g_moduleList[type].dl_min;
@@ -266,14 +269,20 @@ void CeepromsetDlg::OnBnClickedOk()
 	*(int *)&(szbuffer[UL_FREQ_MAX]) = g_moduleList[type].ul_max;
 	*(int *)&(szbuffer[HWCAP_ADDR]) = g_moduleList[type].hwcap;
 
-	hFile.SeekToBegin();
-	hFile.Write(szbuffer, sizeof(szbuffer));
-	hFile.Flush();
-	hFile.Close();
-	MessageBox(_T("保存OK"));
+	CFileDialog dlg(FALSE, NULL, NULL, OFN_HIDEREADONLY, _T("所有文件(*.*)|*.*||"));
+	if (dlg.DoModal() == IDOK)
+	{
+		CString strSave;
+		strSave = dlg.GetPathName();
+		CFile hNewFile(strSave, CFile::modeCreate | CFile::modeReadWrite);
+		hNewFile.SeekToBegin();
+		hNewFile.Write(szbuffer, sizeof(szbuffer));
+		hNewFile.Flush();
+		hNewFile.Close();
+		MessageBox(_T("保存OK"));
+	}
 
 	return;
-
 }
 
 
