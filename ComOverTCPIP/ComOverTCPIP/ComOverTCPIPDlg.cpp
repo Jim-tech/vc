@@ -32,6 +32,7 @@ static HANDLE g_hThreadTx = NULL;
 static HANDLE g_hThreadRx = NULL;
 static unsigned char g_stopflag = 0;
 static UINT g_args[4] = {0};
+static HANDLE g_hLog = INVALID_HANDLE_VALUE;
 
 #define dbgprint(...) \
     do\
@@ -80,6 +81,7 @@ CComOverTCPIPDlg::CComOverTCPIPDlg(CWnd* pParent /*=NULL*/)
 	, m_ipaddr(0)
 	, m_console(_T(""))
 	, m_commask(0)	
+	, m_logPath(_T(""))
 {
 #ifdef _DEBUG  
 	AllocConsole();  
@@ -140,6 +142,7 @@ void CComOverTCPIPDlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxUInt(pDX, m_port, 5000, 65535);
 	DDX_IPAddress(pDX, IDC_IPADDRESS, m_ipaddr);
 	DDX_Text(pDX, IDC_EDIT_COM, m_console);
+	DDX_Text(pDX, IDC_EDIT_LOGPATH, m_logPath);
 }
 
 BEGIN_MESSAGE_MAP(CComOverTCPIPDlg, CDialogEx)
@@ -148,6 +151,7 @@ BEGIN_MESSAGE_MAP(CComOverTCPIPDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(ID_START, &CComOverTCPIPDlg::OnBnClickedStart)
 	ON_BN_CLICKED(ID_STOP, &CComOverTCPIPDlg::OnBnClickedStop)
+	ON_BN_CLICKED(IDC_BUTTON_LOG, &CComOverTCPIPDlg::OnBnClickedButtonLog)
 END_MESSAGE_MAP()
 
 
@@ -499,6 +503,9 @@ DWORD WINAPI RxProc(LPVOID lpParameter)
 		}
 		//清空发送缓冲区
 		PurgeComm(g_comHandle,PURGE_TXCLEAR);
+
+		//保存到日志文件中
+		WriteFile(g_hLog, (void *)szbuffer, len, &dwBytesWrite, NULL);
 	}	
 
 	return 0;
@@ -520,8 +527,8 @@ DWORD WINAPI InitProc(LPVOID lpParameter)
 	if ((ip_connect(ip, port)) != 0)
 	{
 		dbgprint("connect to server fail");
-		CloseHandle(g_comHandle);
-		g_comHandle = NULL;
+		//CloseHandle(g_comHandle);
+		//g_comHandle = NULL;
 		return -1;
 	}
 
@@ -551,13 +558,43 @@ void CComOverTCPIPDlg::OnBnClickedStart()
 	// TODO: Add your control notification handler code here
 	UpdateData(TRUE);
 
+	if (0 != m_logPath.GetLength())
+	{
+		g_hLog = CreateFile(m_logPath.GetString(),
+						    GENERIC_READ | GENERIC_WRITE,
+			                0,
+			                (LPSECURITY_ATTRIBUTES)NULL,
+							OPEN_EXISTING,
+			                FILE_ATTRIBUTE_NORMAL,
+			                (HANDLE)NULL);
+		if (INVALID_HANDLE_VALUE == g_hLog)
+		{
+			g_hLog = CreateFile(m_logPath.GetString(),
+				GENERIC_READ | GENERIC_WRITE,
+				0,
+				(LPSECURITY_ATTRIBUTES)NULL,
+				CREATE_NEW,
+				FILE_ATTRIBUTE_NORMAL,
+				(HANDLE)NULL);
+			if (INVALID_HANDLE_VALUE == g_hLog)
+			{
+				MessageBox(_T("打开log文件失败"));
+				return;
+			}
+		}
+
+		SetFilePointer(g_hLog, 0, NULL, FILE_END);
+	}
+
 	g_args[0] = m_comport2;
 	g_args[1] = m_ipaddr;
 	g_args[2] = m_port;
+	
 	g_hThreadInit = CreateThread(NULL, 0, InitProc, g_args, 0, NULL); 
 	
 	CloseHandle(g_hThreadInit);
 	GetDlgItem(ID_START)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_LOG)->EnableWindow(FALSE);
 	GetDlgItem(ID_STOP)->EnableWindow(TRUE);
 
 	UpdateData(FALSE);
@@ -581,8 +618,6 @@ void CComOverTCPIPDlg::OnBnClickedStop()
 		CloseHandle(g_hThreadRx);
 		g_hThreadRx = NULL;	
 	}
-	
-	g_stopflag = 0;
 
 	Sleep(500);
 
@@ -598,9 +633,29 @@ void CComOverTCPIPDlg::OnBnClickedStop()
 		g_comHandle = NULL;
 	}
 
+	if (INVALID_HANDLE_VALUE != g_hLog)
+	{
+		CloseHandle(g_hLog);
+		g_hLog = INVALID_HANDLE_VALUE;
+	}
+
+	g_stopflag = 0;
 	WSACleanup();
 
 	GetDlgItem(ID_START)->EnableWindow(TRUE);
+	GetDlgItem(IDC_BUTTON_LOG)->EnableWindow(TRUE);
 	GetDlgItem(ID_STOP)->EnableWindow(FALSE);
 	
+}
+
+
+void CComOverTCPIPDlg::OnBnClickedButtonLog()
+{
+	// TODO: Add your control notification handler code here
+	CFileDialog  dlg(false, _T(""), NULL, OFN_FILEMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR, _T("All Files(*.*)|*.*||"));
+	if (dlg.DoModal() == IDOK)
+	{
+		m_logPath = dlg.GetPathName();
+		UpdateData(FALSE);
+	}
 }

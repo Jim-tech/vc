@@ -41,4 +41,6 @@ public:
     UINT m_commask;
 	afx_msg void OnBnClickedStart();
 	afx_msg void OnBnClickedStop();
+	CString m_logPath;
+	afx_msg void OnBnClickedButtonLog();
 };
