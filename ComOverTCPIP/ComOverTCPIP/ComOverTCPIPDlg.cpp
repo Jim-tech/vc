@@ -398,7 +398,7 @@ DWORD WINAPI TxProc(LPVOID lpParameter)
 	COMSTAT ComStat;
 	while(1)
 	{
-		Sleep(100);
+		Sleep(10);
 
 		if (g_stopflag)
 		{
@@ -407,11 +407,18 @@ DWORD WINAPI TxProc(LPVOID lpParameter)
 		
 		//获取错误信息以及了解缓冲区相应的状态
 		ClearCommError(g_comHandle,&dwErrorFlags,&ComStat);
+
 		//判断接受缓冲区是否为空
 		if(ComStat.cbInQue!=0)
 		{
+			int len = ComStat.cbInQue;
+			if (len > sizeof(szbuffer))
+			{
+				len = sizeof(szbuffer);
+			}
+
 			//如果接受缓冲区状态信息不为空，则把接受信息打印出来
-			DWORD ReadFlag=ReadFile(g_comHandle,szbuffer,ComStat.cbInQue,&readlen,NULL);
+			DWORD ReadFlag = ReadFile(g_comHandle, szbuffer, len, &readlen, NULL);
 			if(!ReadFlag)
 			{
 				dbgprint("read from COM failed with error %d", WSAGetLastError());
@@ -437,7 +444,7 @@ DWORD WINAPI TxProc(LPVOID lpParameter)
 				
 				send(g_sock, (char *)szbuffer, readlen, 0);
 			}
-			memset(szbuffer,0,ComStat.cbInQue);
+			memset(szbuffer, 0, sizeof(szbuffer));
 		}
 		
 		//清空接受缓冲区
@@ -453,7 +460,7 @@ DWORD WINAPI RxProc(LPVOID lpParameter)
 	
 	while (1)
 	{
-		Sleep(100);
+		Sleep(10);
 
 		if (g_stopflag)
 		{
@@ -505,7 +512,10 @@ DWORD WINAPI RxProc(LPVOID lpParameter)
 		PurgeComm(g_comHandle,PURGE_TXCLEAR);
 
 		//保存到日志文件中
-		WriteFile(g_hLog, (void *)szbuffer, len, &dwBytesWrite, NULL);
+		if (INVALID_HANDLE_VALUE != g_hLog)
+		{
+			WriteFile(g_hLog, (void *)szbuffer, len, &dwBytesWrite, NULL);
+		}
 	}	
 
 	return 0;
