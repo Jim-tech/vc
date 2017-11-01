@@ -91,7 +91,48 @@ void atecard_close()
 	}
 }
 
-int atecard_io_set(unsigned char id, unsigned level)
+int atecard_io_init(unsigned char id, unsigned dir, unsigned char level)
+{
+	int         ret;
+	int         actlen = 0;
+	GPIO_CMD_S  streq;
+	GPIO_CMD_S  stresp;
+
+	if (NULL == g_usbdevhandle)
+	{
+		return -1;
+	}
+
+	streq.cmd = IO_GPIO_INIT;
+	streq.error = 0;
+	streq.id = id;
+	streq.dir = dir;
+	streq.level = level;
+
+	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_SET_EP, (unsigned char *)&streq, sizeof(streq), &actlen, 2000);
+	if (ret < 0)
+	{
+		printf("send set cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_GET_EP, (unsigned char *)&stresp, sizeof(stresp), &actlen, 2000);
+	if (ret < 0)
+	{
+		printf("send get cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	if (0 != stresp.error)
+	{
+		printf("device resp stresp.error=%d\r\n", stresp.error);
+		return -1;
+	}
+
+	return 0;
+}
+
+int atecard_io_set(unsigned char id, unsigned char level)
 {
 	int         ret;
 	int         actlen = 0;
@@ -104,6 +145,7 @@ int atecard_io_set(unsigned char id, unsigned level)
 	}
 
 	streq.cmd = IO_GPIO_SET;
+	streq.error = 0;
 	streq.id = id;
 	streq.level = level;
 
@@ -121,10 +163,16 @@ int atecard_io_set(unsigned char id, unsigned level)
 		return -1;
 	}
 
+	if (0 != stresp.error)
+	{
+		printf("device resp stresp.error=%d\r\n", stresp.error);
+		return -1;
+	}
+
 	return 0;
 }
 
-int atecard_io_get(unsigned char id, unsigned *plevel)
+int atecard_io_get(unsigned char id, unsigned char *plevel)
 {
 	int         ret;
 	int         actlen = 0;
@@ -137,6 +185,7 @@ int atecard_io_get(unsigned char id, unsigned *plevel)
 	}
 
 	streq.cmd = IO_GPIO_GET;
+	streq.error = 0;
 	streq.id = id;
 
 	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_SET_EP, (unsigned char *)&streq, sizeof(streq), &actlen, 2000);
@@ -150,6 +199,12 @@ int atecard_io_get(unsigned char id, unsigned *plevel)
 	if (ret < 0)
 	{
 		printf("send get cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	if (0 != stresp.error)
+	{
+		printf("device resp stresp.error=%d\r\n", stresp.error);
 		return -1;
 	}
 
@@ -170,6 +225,7 @@ int atecard_adc_get(unsigned short *pval)
 	}
 
 	streq.cmd = IO_ADC_CMD;
+	streq.error = 0;
 
 	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_SET_EP, (unsigned char *)&streq, sizeof(streq), &actlen, 2000);
 	if (ret < 0)
@@ -182,6 +238,12 @@ int atecard_adc_get(unsigned short *pval)
 	if (ret < 0)
 	{
 		printf("send get cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	if (0 != stresp.error)
+	{
+		printf("device resp stresp.error=%d\r\n", stresp.error);
 		return -1;
 	}
 
