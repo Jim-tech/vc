@@ -39,8 +39,22 @@ typedef enum
     CAL_PWR_VGS_C2_P3_TBL   = 26,       /*通道2功放3栅压回退 cal_delta_s */
     CAL_FLTR_PARAM_C1_TBL   = 27,       /*通道1滤波器参数 filter_param_s */
     CAL_FLTR_PARAM_C2_TBL   = 28,       /*通道2滤波器参数 filter_param_s */
+	CAL_FREQ_FB3_TBL = 29,
+	CAL_FREQ_FB4_TBL = 30,
+	CAL_TEMP_TX3_TBL = 31,
+	CAL_TEMP_TX4_TBL = 32,
+	CAL_TEMP_RX3_TBL = 33,
+	CAL_TEMP_RX4_TBL = 34,
+	CAL_TEMP_FB3_TBL = 35,
+	CAL_TEMP_FB4_TBL = 36,
+	CAL_VGS_C3_P1_TBL = 37,
+	CAL_VGS_C3_P2_TBL = 38,
+	CAL_VGS_C3_P3_TBL = 39,
+	CAL_VGS_C4_P1_TBL = 40,
+	CAL_VGS_C4_P2_TBL = 41,
+	CAL_VGS_C4_P3_TBL = 42,
 
-    CAL_TBL_LAST = CAL_FLTR_PARAM_C2_TBL,
+	CAL_TBL_LAST = CAL_VGS_C4_P3_TBL,
     CAL_TBL_MAX             = 128        /*最多128张表*/
 }CAL_TBLID_E;
 
@@ -76,6 +90,20 @@ typedef enum
     "26_CAL_PWR_VGS_C2_P3_TBL", \
     "27_CAL_FLTR_PARAM_C1_TBL", \
     "28_CAL_FLTR_PARAM_C2_TBL", \
+    "29_CAL_FREQ_FB3_TBL", \
+    "30_CAL_FREQ_FB4_TBL", \
+    "31_CAL_TEMP_TX3_TBL", \
+    "32_CAL_TEMP_TX4_TBL", \
+    "33_CAL_TEMP_RX3_TBL", \
+    "34_CAL_TEMP_RX4_TBL", \
+    "35_CAL_TEMP_FB3_TBL", \
+    "36_CAL_TEMP_FB4_TBL", \
+    "37_CAL_VGS_C3_P1_TBL", \
+    "38_CAL_VGS_C3_P2_TBL", \
+    "39_CAL_VGS_C3_P3_TBL", \
+    "40_CAL_VGS_C4_P1_TBL", \
+    "41_CAL_VGS_C4_P2_TBL", \
+    "42_CAL_VGS_C4_P3_TBL", \
 }
 
 typedef enum

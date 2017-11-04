@@ -123,6 +123,20 @@ int memdb_export(char *filename, char *dirname)
 			case CAL_PWR_VGS_C2_P1_TBL:
 			case CAL_PWR_VGS_C2_P2_TBL:
 			case CAL_PWR_VGS_C2_P3_TBL:
+			case CAL_FREQ_FB3_TBL:
+			case CAL_FREQ_FB4_TBL:
+			case CAL_TEMP_TX3_TBL:
+			case CAL_TEMP_TX4_TBL:
+			case CAL_TEMP_RX3_TBL:
+			case CAL_TEMP_RX4_TBL:
+			case CAL_TEMP_FB3_TBL:
+			case CAL_TEMP_FB4_TBL:
+			case CAL_VGS_C3_P1_TBL:
+			case CAL_VGS_C3_P2_TBL:
+			case CAL_VGS_C3_P3_TBL:
+			case CAL_VGS_C4_P1_TBL:
+			case CAL_VGS_C4_P2_TBL:
+			case CAL_VGS_C4_P3_TBL:
 				{
 					calsave_s  sttableval = {0};
 					if (0 != ru_read_caltbl(tableid, &sttableval))
@@ -256,6 +270,20 @@ int memdb_import(char *dirname, char *filename)
 			case CAL_PWR_VGS_C2_P1_TBL:
 			case CAL_PWR_VGS_C2_P2_TBL:
 			case CAL_PWR_VGS_C2_P3_TBL:
+			case CAL_FREQ_FB3_TBL:
+			case CAL_FREQ_FB4_TBL:
+			case CAL_TEMP_TX3_TBL:
+			case CAL_TEMP_TX4_TBL:
+			case CAL_TEMP_RX3_TBL:
+			case CAL_TEMP_RX4_TBL:
+			case CAL_TEMP_FB3_TBL:
+			case CAL_TEMP_FB4_TBL:
+			case CAL_VGS_C3_P1_TBL:
+			case CAL_VGS_C3_P2_TBL:
+			case CAL_VGS_C3_P3_TBL:
+			case CAL_VGS_C4_P1_TBL:
+			case CAL_VGS_C4_P2_TBL:
+			case CAL_VGS_C4_P3_TBL:
 				{
 					int   	   row = 0;
 					calsave_s  sttableval = {0};
