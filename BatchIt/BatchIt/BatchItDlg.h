@@ -48,4 +48,7 @@ public:
 	CString			m_gpsFirmware;
 	HANDLE          m_pProcessThread;
 
+	afx_msg void OnControlStop();
+	afx_msg void OnControlStart();
+	afx_msg void OnRclickListDev(NMHDR *pNMHDR, LRESULT *pResult);
 };

@@ -151,6 +151,9 @@ BEGIN_MESSAGE_MAP(CBatchItDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_START, &CBatchItDlg::OnBnClickedButtonStart)
 	ON_WM_TIMER()
 	ON_COMMAND(ID_OPERATION_SELECTFIRMWARE, &CBatchItDlg::OnOperationSelectfirmware)
+	ON_COMMAND(ID_CONTROL_STOP, &CBatchItDlg::OnControlStop)
+	ON_COMMAND(ID_CONTROL_START, &CBatchItDlg::OnControlStart)
+	ON_NOTIFY(NM_RCLICK, IDC_LIST_DEV, &CBatchItDlg::OnRclickListDev)
 END_MESSAGE_MAP()
 
 void utils_TChar2Char(TCHAR *pIn, char *pOut, int maxlen)
@@ -241,6 +244,11 @@ DWORD WINAPI thread_process(LPVOID lpParameter)
 
 			for (int i = 0; i < sizeof(g_devlist) / sizeof(IPList_S); i++)
 			{
+				if (!g_devlist[i].running)
+				{
+					continue;
+				}
+
 				if (stmsg.ipaddr == g_devlist[i].ipaddr)
 				{
 					sprintf_s(g_devlist[i].szsn, sizeof(g_devlist[i].szsn), "%s", stmsg.snstr);
@@ -561,6 +569,7 @@ void CBatchItDlg::OnMenuImpdev()
 					g_devlist[i].running = false;
 					g_devlist[i].used = true;
 
+					m_devList.SetItemData(index, g_devlist[i].ipaddr);
 					break;
 				}
 			}
@@ -680,12 +689,18 @@ void CBatchItDlg::OnBnClickedButtonStart()
 			g_devlist[i].running = true;
 			g_devlist[i].run_seconds = 0;
 			g_devlist[i].hProcess = pi.hProcess;
+
+			m_devList.SetItemText(i, E_ITEM_STATUS, _T("login..."));
 		}
 		else
 		{
 			g_devlist[i].state = E_STATE_FAIL;
 			g_devlist[i].running = false;
+			g_devlist[i].run_seconds = 0;
 			g_devlist[i].hProcess = NULL;
+
+			m_devList.SetItemText(i, E_ITEM_STATUS, _T("connect device fail"));
+			m_devList.SetItemColor(i, RGB(0, 0, 0), RGB(0xff, 0, 0));
 		}
 	}
 
@@ -730,7 +745,7 @@ void CBatchItDlg::OnTimer(UINT_PTR nIDEvent)
 				}
 
 				g_devlist[i].running = false;
-				m_devList.SetItemText(i, E_ITEM_STATUS, _T("超时失败"));
+				m_devList.SetItemText(i, E_ITEM_STATUS, _T("timeout"));
 				m_devList.SetItemColor(i, RGB(0, 0, 0), RGB(0xff, 0, 0));
 			}
 
@@ -771,4 +786,145 @@ void CBatchItDlg::OnOperationSelectfirmware()
 		m_gpsFirmware = dlg.GetPathName();
 		UpdateData(FALSE);
 	}
+}
+
+
+void CBatchItDlg::OnControlStop()
+{
+	// TODO: Add your command handler code here
+	POSITION pos = m_devList.GetFirstSelectedItemPosition(); //pos选中的首行位置
+	while (pos) //如果选择多行
+	{
+		int nIdx = -1;
+
+		nIdx = m_devList.GetNextSelectedItem(pos);
+
+		if (nIdx >= 0 && nIdx < m_devList.GetItemCount())
+		{
+			int ipaddr = (int)m_devList.GetItemData(nIdx);
+
+			for (int i = 0; i < sizeof(g_devlist) / sizeof(IPList_S); i++)
+			{
+				if (ipaddr == g_devlist[i].ipaddr)
+				{
+					g_devlist[i].state = E_STATE_FAIL;
+					if (NULL != g_devlist[i].hProcess)
+					{
+						TerminateProcess(g_devlist[i].hProcess, 0);
+						g_devlist[i].hProcess = NULL;
+					}
+
+					g_devlist[i].running = false;
+					m_devList.SetItemText(i, E_ITEM_STATUS, _T("user cancelled"));
+					m_devList.SetItemColor(i, RGB(0, 0, 0), RGB(0xff, 0, 0));
+
+					break;
+				}
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+
+void CBatchItDlg::OnControlStart()
+{
+	// TODO: Add your command handler code here
+	POSITION pos = m_devList.GetFirstSelectedItemPosition(); //pos选中的首行位置
+	while (pos) //如果选择多行
+	{
+		int nIdx = -1;
+
+		nIdx = m_devList.GetNextSelectedItem(pos);
+
+		if (nIdx >= 0 && nIdx < m_devList.GetItemCount())
+		{
+			int ipaddr = (int)m_devList.GetItemData(nIdx);
+
+			for (int i = 0; i < sizeof(g_devlist) / sizeof(IPList_S); i++)
+			{
+				if (ipaddr == g_devlist[i].ipaddr)
+				{
+					if (g_devlist[i].running)
+					{
+						CString str;
+						str.Format(_T("device %d.%d.%d.%d is now running!"), (ipaddr >> 24) & 0xFF, (ipaddr >> 16) & 0xFF, (ipaddr >> 8) & 0xFF, ipaddr & 0xFF);
+						MessageBox(str);
+						break;
+					}
+
+					m_devList.SetItemColor(i, RGB(0, 0, 0), RGB(0xFF, 0xFF, 0xFF));
+
+					STARTUPINFO si;
+					PROCESS_INFORMATION pi;
+
+					ZeroMemory(&pi, sizeof(pi));
+					ZeroMemory(&si, sizeof(si));
+					si.cb = sizeof(si);
+					si.wShowWindow = SW_HIDE;
+
+					TCHAR tcmdline[4096] = { 0 };
+					TCHAR ipstr[32] = { 0 };
+					TCHAR username[256] = { 0 };
+					TCHAR passwd[256] = { 0 };
+
+					int ipaddr = g_devlist[i].ipaddr;
+					wsprintf(ipstr, _T("%d.%d.%d.%d"), (ipaddr >> 24) & 0xFF, (ipaddr >> 16) & 0xFF, (ipaddr >> 8) & 0xFF, ipaddr & 0xFF);
+
+					utils_Char2Tchar(g_devlist[i].szuser, username, sizeof(username));
+					utils_Char2Tchar(g_devlist[i].szpasswd, passwd, sizeof(passwd));
+					wsprintf(tcmdline, _T("gpsup.exe %s %s %s %s"), ipstr, username, passwd, m_gpsFirmware.GetString());
+
+					if (CreateProcess(NULL, tcmdline, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+					{
+						g_devlist[i].running = true;
+						g_devlist[i].run_seconds = 0;
+						g_devlist[i].hProcess = pi.hProcess;
+
+						m_devList.SetItemText(i, E_ITEM_STATUS, _T("login..."));
+					}
+					else
+					{
+						g_devlist[i].state = E_STATE_FAIL;
+						g_devlist[i].running = false;
+						g_devlist[i].run_seconds = 0;
+						g_devlist[i].hProcess = NULL;
+
+						m_devList.SetItemText(i, E_ITEM_STATUS, _T("connect device fail"));
+						m_devList.SetItemColor(i, RGB(0, 0, 0), RGB(0xff, 0, 0));
+					}
+
+					break;
+				}
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+
+void CBatchItDlg::OnRclickListDev(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	// TODO: Add your control notification handler code here
+	*pResult = 0;
+
+	if (m_devList.GetSelectedCount() <= 0)
+	{
+		return;
+	}
+
+	CMenu menu, *pPopup;
+	menu.LoadMenu(IDR_MENU2);
+	pPopup = menu.GetSubMenu(0);
+	CPoint myPoint;
+	ClientToScreen(&myPoint);
+	GetCursorPos(&myPoint); //鼠标位置  
+	pPopup->TrackPopupMenu(TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RIGHTBUTTON, myPoint.x, myPoint.y, this);
 }
