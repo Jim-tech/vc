@@ -124,12 +124,6 @@ typedef enum
 	e_ssh_quit_fail     = 2,
 }upgrade_msg_e;
 
-typedef enum
-{
-	plat_t2k  		= 0,
-	plat_t3k  		= 1,
-}platform_e;
-
 #pragma pack(1)
 
 typedef struct
@@ -310,7 +304,8 @@ int DB_UpgradeResult(IPList_S *pstInfo)
 		(_variant_t)pstInfo->szmac,
 		(_variant_t)pstInfo->szversion,
 		(_variant_t)curtime,
-		(_variant_t)((plat_t3k == g_pstDlgPtr->m_platform_cmb.GetCurSel()) ? "T3K" : "T2K"),
+		//(_variant_t)((plat_t3k == g_pstDlgPtr->m_platform_cmb.GetCurSel()) ? "T3K" : "T2K"),
+		(_variant_t)"unused",
 		(_variant_t)((1 == g_pstDlgPtr->m_doublearea) ? "True" : "False")
 	};
 
@@ -561,7 +556,14 @@ HANDLE create_upgrade_process(int ipaddr, unsigned char mac[6])
 
 	utils_TChar2Char((TCHAR *)g_pstDlgPtr->m_imgPath.GetString(), filepath, sizeof(filepath));
 
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s %s %d %d", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea, g_pstDlgPtr->m_platform_cmb.GetCurSel());
+	int index = g_pstDlgPtr->m_platform_cmb.GetCurSel();
+	CString str;
+	g_pstDlgPtr->m_platform_cmb.GetLBText(index, str);
+
+	char cfgfile[512];
+	utils_TChar2Char((TCHAR *)str.GetString(), cfgfile, sizeof(cfgfile));
+	
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s %s %d %s", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea, cfgfile);
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
@@ -597,7 +599,14 @@ HANDLE create_check_process(int ipaddr, unsigned char mac[6])
 
 	utils_TChar2Char((TCHAR *)g_pstDlgPtr->m_ver.GetString(), filever, sizeof(filever));
 
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s %s %d %d", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea, g_pstDlgPtr->m_platform_cmb.GetCurSel());
+	int index = g_pstDlgPtr->m_platform_cmb.GetCurSel();
+	CString str;
+	g_pstDlgPtr->m_platform_cmb.GetLBText(index, str);
+
+	char cfgfile[512];
+	utils_TChar2Char((TCHAR *)str.GetString(), cfgfile, sizeof(cfgfile));
+
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s %s %d %s", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea, cfgfile);
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
@@ -1443,8 +1452,29 @@ BOOL CBatchUpDlg::OnInitDialog()
 	m_doublearea = TRUE;
 	m_sortorder_inc = FALSE;
 
+	#if  0
 	m_platform_cmb.InsertString(plat_t2k, _T("T2K"));
 	m_platform_cmb.InsertString(plat_t3k, _T("T3K"));
+	#endif /* #if 0 */
+
+	int cnt = 0;
+
+	TCHAR szCfgDir[512];
+	TCHAR szCfgIniPath[1024];
+	::GetCurrentDirectory(sizeof(szCfgDir), szCfgDir);
+	wsprintf(szCfgIniPath, _T("%s\\*_cfg.ini"), szCfgDir);
+
+	CFileFind tempFind; 
+	BOOL bFound; //判断是否成功找到文件
+	bFound=tempFind.FindFile(szCfgIniPath);   //修改" "内内容给限定查找文件类型
+	CString strTmp;   //如果找到的是文件夹 存放文件夹路径
+	while(bFound)      //遍历所有文件
+	{ 
+		bFound=tempFind.FindNextFile(); //第一次执行FindNextFile是选择到第一个文件，以后执行为选择到下一个文件
+		m_platform_cmb.InsertString(cnt++, tempFind.GetFileName());
+	} 
+	tempFind.Close(); 
+	
 	m_platform_cmb.SetCurSel(0);
 
 	CreateDirectory(_T("log"), 0);
