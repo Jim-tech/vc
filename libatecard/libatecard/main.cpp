@@ -30,7 +30,8 @@ int atecard_driver_init()
 
 void atecard_driver_deinit()
 {
-	libusb_free_device_list(g_usbdevs, 1);
+	if (NULL != g_usbdevs)
+		libusb_free_device_list(g_usbdevs, 1);
 	libusb_exit(NULL);
 }
 
@@ -59,7 +60,6 @@ int atecard_getdevcount(int *pcount)
 int atecard_open()
 {
 	int  ret = 0;
-	int  count = 0;
 	libusb_device *dev;
 	struct libusb_device_descriptor desc;
 
@@ -69,7 +69,6 @@ int atecard_open()
 		{
 			if (desc.idVendor == 0xdefa && desc.idProduct == 0x9361)
 			{
-				count++;
 				ret = libusb_open(dev, &g_usbdevhandle);
 				if (ret >= 0)
 				{
@@ -251,3 +250,65 @@ int atecard_adc_get(unsigned short *pval)
 	return 0;
 }
 
+int atecard_dfu_enable()
+{
+	int         ret;
+	int         actlen = 0;
+	DFU_CMD_S   streq;
+
+	if (NULL == g_usbdevhandle)
+	{
+		return -1;
+	}
+
+	streq.cmd = IO_DFU_CMD;
+	streq.error = 0;
+
+	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_SET_EP, (unsigned char *)&streq, sizeof(streq), &actlen, 2000);
+	if (ret < 0)
+	{
+		printf("send set cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
+int atecard_ver_get(unsigned short *pval)
+{
+	int         ret;
+	int         actlen = 0;
+	VER_CMD_S   streq;
+	VER_CMD_S   stresp;
+
+	if (NULL == g_usbdevhandle)
+	{
+		return -1;
+	}
+
+	streq.cmd = IO_VER_CMD;
+	streq.error = 0;
+
+	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_SET_EP, (unsigned char *)&streq, sizeof(streq), &actlen, 2000);
+	if (ret < 0)
+	{
+		printf("send set cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	ret = libusb_bulk_transfer(g_usbdevhandle, USB_IO_GET_EP, (unsigned char *)&stresp, sizeof(stresp), &actlen, 2000);
+	if (ret < 0)
+	{
+		printf("send get cmd fail ret=%d\r\n", ret);
+		return -1;
+	}
+
+	if (0 != stresp.error)
+	{
+		printf("device resp stresp.error=%d\r\n", stresp.error);
+		return -1;
+	}
+
+	*pval = stresp.val;
+	return 0;
+}
