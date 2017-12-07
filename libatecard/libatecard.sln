@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libatecard", "libatecard\libatecard.vcxproj", "{B417EBB6-5C7A-46F1-93ED-8F86008CBADE}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libatecard_dll", "libatecard_dll\libatecard_dll.vcxproj", "{DDC68A13-E7BF-44F0-BE6A-E149098C39EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -15,6 +17,10 @@ Global
 		{B417EBB6-5C7A-46F1-93ED-8F86008CBADE}.Debug|Win32.Build.0 = Debug|Win32
 		{B417EBB6-5C7A-46F1-93ED-8F86008CBADE}.Release|Win32.ActiveCfg = Release|Win32
 		{B417EBB6-5C7A-46F1-93ED-8F86008CBADE}.Release|Win32.Build.0 = Release|Win32
+		{DDC68A13-E7BF-44F0-BE6A-E149098C39EC}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DDC68A13-E7BF-44F0-BE6A-E149098C39EC}.Debug|Win32.Build.0 = Debug|Win32
+		{DDC68A13-E7BF-44F0-BE6A-E149098C39EC}.Release|Win32.ActiveCfg = Release|Win32
+		{DDC68A13-E7BF-44F0-BE6A-E149098C39EC}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
