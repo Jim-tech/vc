@@ -563,7 +563,7 @@ HANDLE create_upgrade_process(int ipaddr, unsigned char mac[6])
 	char cfgfile[512];
 	utils_TChar2Char((TCHAR *)str.GetString(), cfgfile, sizeof(cfgfile));
 	
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s %s %d %s", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea, cfgfile);
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe upgrade %s %s \"%s\" %d %s", ipstr, macstr, filepath, g_pstDlgPtr->m_doublearea, cfgfile);
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
@@ -606,7 +606,7 @@ HANDLE create_check_process(int ipaddr, unsigned char mac[6])
 	char cfgfile[512];
 	utils_TChar2Char((TCHAR *)str.GetString(), cfgfile, sizeof(cfgfile));
 
-	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s %s %d %s", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea, cfgfile);
+	sprintf_s(cmdline, sizeof(cmdline), "sshcmd.exe check %s %s \"%s\" %d %s", ipstr, macstr, filever, g_pstDlgPtr->m_doublearea, cfgfile);
 	utils_Char2Tchar(cmdline, tcmdline, sizeof(tcmdline));
 	
 	STARTUPINFO si;
