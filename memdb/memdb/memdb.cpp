@@ -98,45 +98,39 @@ int memdb_export(char *filename, char *dirname)
 				}
 				break;
 				
-			case CAL_FREQ_TX1_TBL:
-			case CAL_FREQ_TX2_TBL:
-			case CAL_FREQ_RX1_TBL:
-			case CAL_FREQ_RX2_TBL:
-			case CAL_FREQ_FB1_TBL:
-			case CAL_FREQ_FB2_TBL:
-			case CAL_TEMP_TX1_TBL:
-			case CAL_TEMP_TX2_TBL:
-			case CAL_TEMP_RX1_TBL:
-			case CAL_TEMP_RX2_TBL:
-			case CAL_TEMP_FB1_TBL:
-			case CAL_TEMP_FB2_TBL:
-			case CAL_VGS_C1_P1_TBL:
-			case CAL_VGS_C1_P2_TBL:
-			case CAL_VGS_C1_P3_TBL:
-			case CAL_VGS_C2_P1_TBL:
-			case CAL_VGS_C2_P2_TBL:
-			case CAL_VGS_C2_P3_TBL:
-			case CAL_PWR_VDS_TBL:
-			case CAL_PWR_VGS_C1_P1_TBL:
-			case CAL_PWR_VGS_C1_P2_TBL:
-			case CAL_PWR_VGS_C1_P3_TBL:
-			case CAL_PWR_VGS_C2_P1_TBL:
-			case CAL_PWR_VGS_C2_P2_TBL:
-			case CAL_PWR_VGS_C2_P3_TBL:
-			case CAL_FREQ_FB3_TBL:
-			case CAL_FREQ_FB4_TBL:
-			case CAL_TEMP_TX3_TBL:
-			case CAL_TEMP_TX4_TBL:
-			case CAL_TEMP_RX3_TBL:
-			case CAL_TEMP_RX4_TBL:
-			case CAL_TEMP_FB3_TBL:
-			case CAL_TEMP_FB4_TBL:
-			case CAL_VGS_C3_P1_TBL:
-			case CAL_VGS_C3_P2_TBL:
-			case CAL_VGS_C3_P3_TBL:
-			case CAL_VGS_C4_P1_TBL:
-			case CAL_VGS_C4_P2_TBL:
-			case CAL_VGS_C4_P3_TBL:
+		    case CAL_FREQ_TX0_TBL:
+		    case CAL_FREQ_TX1_TBL:
+		    case CAL_FREQ_RX0_TBL:
+		    case CAL_FREQ_RX1_TBL:
+		    case CAL_FREQ_REF0_TBL:
+		    case CAL_FREQ_REF1_TBL:
+		    case CAL_TEMP_TX0_TBL:
+		    case CAL_TEMP_TX1_TBL:
+		    case CAL_TEMP_RX0_TBL:
+		    case CAL_TEMP_RX1_TBL:
+		    case CAL_TEMP_REF0_TBL:
+		    case CAL_TEMP_REF1_TBL:
+		    case CAL_VGS_C0_P0_TBL:
+		    case CAL_VGS_C0_P1_TBL:
+		    case CAL_VGS_C0_P2_TBL:
+		    case CAL_VGS_C0_P3_TBL:
+		    case CAL_VGS_C1_P0_TBL:
+		    case CAL_VGS_C1_P1_TBL:
+		    case CAL_VGS_C1_P2_TBL:
+		    case CAL_VGS_C1_P3_TBL:
+		    case CAL_PWR_VDS_TBL:
+		    case CAL_PWR_VGS_C0_P0_TBL:
+		    case CAL_PWR_VGS_C0_P1_TBL:
+		    case CAL_PWR_VGS_C0_P2_TBL:
+		    case CAL_PWR_VGS_C0_P3_TBL:
+		    case CAL_PWR_VGS_C1_P0_TBL:
+		    case CAL_PWR_VGS_C1_P1_TBL:
+		    case CAL_PWR_VGS_C1_P2_TBL:
+		    case CAL_PWR_VGS_C1_P3_TBL:
+		    case CAL_FREQ_TX0_FB_TBL:
+		    case CAL_FREQ_TX1_FB_TBL:
+		    case CAL_TEMP_TX0_FB_TBL:
+		    case CAL_TEMP_TX1_FB_TBL:
 				{
 					calsave_s  sttableval = {0};
 					if (0 != ru_read_caltbl(tableid, &sttableval))
@@ -145,8 +139,8 @@ int memdb_export(char *filename, char *dirname)
 					}
 					else
 					{
-						fprintf(fp, "start,step,count,base\n");
-						fprintf(fp, "%d,%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt, sttableval.value_base);
+						fprintf(fp, "start,step,count,base,version\n");
+						fprintf(fp, "%d,%d,%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt, sttableval.value_base, sttableval.version);
 						fprintf(fp, "key,value\n");
 
 						cal_delta_s *pdata = (cal_delta_s *)(sttableval.data);
@@ -158,8 +152,10 @@ int memdb_export(char *filename, char *dirname)
 				}
 				break;
 
-			case CAL_FLTR_PARAM_C1_TBL:
-			case CAL_FLTR_PARAM_C2_TBL:
+		    case CAL_FLTR_PARAM_TX_C0_TBL:
+		    case CAL_FLTR_PARAM_TX_C1_TBL:
+		    case CAL_FLTR_PARAM_RX_C0_TBL:
+		    case CAL_FLTR_PARAM_RX_C1_TBL:
 				{
 					calsave_s  sttableval = {0};
 					if (0 != ru_read_caltbl(tableid, &sttableval))
@@ -168,8 +164,8 @@ int memdb_export(char *filename, char *dirname)
 					}
 					else
 					{
-						fprintf(fp, "start,step,count\n");
-						fprintf(fp, "%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt);
+						fprintf(fp, "start,step,count,base,version\n");
+						fprintf(fp, "%d,%d,%d,%d,%d\n", sttableval.cal_start, sttableval.cal_step, sttableval.recordcnt,sttableval.value_base,sttableval.version);
 						fprintf(fp, "key,delay,attenuation\n");
 
 						filter_param_s *pdata = (filter_param_s *)(sttableval.data);
@@ -245,45 +241,39 @@ int memdb_import(char *dirname, char *filename)
 				}
 				break;
 				
-			case CAL_FREQ_TX1_TBL:
-			case CAL_FREQ_TX2_TBL:
-			case CAL_FREQ_RX1_TBL:
-			case CAL_FREQ_RX2_TBL:
-			case CAL_FREQ_FB1_TBL:
-			case CAL_FREQ_FB2_TBL:
-			case CAL_TEMP_TX1_TBL:
-			case CAL_TEMP_TX2_TBL:
-			case CAL_TEMP_RX1_TBL:
-			case CAL_TEMP_RX2_TBL:
-			case CAL_TEMP_FB1_TBL:
-			case CAL_TEMP_FB2_TBL:
-			case CAL_VGS_C1_P1_TBL:
-			case CAL_VGS_C1_P2_TBL:
-			case CAL_VGS_C1_P3_TBL:
-			case CAL_VGS_C2_P1_TBL:
-			case CAL_VGS_C2_P2_TBL:
-			case CAL_VGS_C2_P3_TBL:
-			case CAL_PWR_VDS_TBL:
-			case CAL_PWR_VGS_C1_P1_TBL:
-			case CAL_PWR_VGS_C1_P2_TBL:
-			case CAL_PWR_VGS_C1_P3_TBL:
-			case CAL_PWR_VGS_C2_P1_TBL:
-			case CAL_PWR_VGS_C2_P2_TBL:
-			case CAL_PWR_VGS_C2_P3_TBL:
-			case CAL_FREQ_FB3_TBL:
-			case CAL_FREQ_FB4_TBL:
-			case CAL_TEMP_TX3_TBL:
-			case CAL_TEMP_TX4_TBL:
-			case CAL_TEMP_RX3_TBL:
-			case CAL_TEMP_RX4_TBL:
-			case CAL_TEMP_FB3_TBL:
-			case CAL_TEMP_FB4_TBL:
-			case CAL_VGS_C3_P1_TBL:
-			case CAL_VGS_C3_P2_TBL:
-			case CAL_VGS_C3_P3_TBL:
-			case CAL_VGS_C4_P1_TBL:
-			case CAL_VGS_C4_P2_TBL:
-			case CAL_VGS_C4_P3_TBL:
+		    case CAL_FREQ_TX0_TBL:
+		    case CAL_FREQ_TX1_TBL:
+		    case CAL_FREQ_RX0_TBL:
+		    case CAL_FREQ_RX1_TBL:
+		    case CAL_FREQ_REF0_TBL:
+		    case CAL_FREQ_REF1_TBL:
+		    case CAL_TEMP_TX0_TBL:
+		    case CAL_TEMP_TX1_TBL:
+		    case CAL_TEMP_RX0_TBL:
+		    case CAL_TEMP_RX1_TBL:
+		    case CAL_TEMP_REF0_TBL:
+		    case CAL_TEMP_REF1_TBL:
+		    case CAL_VGS_C0_P0_TBL:
+		    case CAL_VGS_C0_P1_TBL:
+		    case CAL_VGS_C0_P2_TBL:
+		    case CAL_VGS_C0_P3_TBL:
+		    case CAL_VGS_C1_P0_TBL:
+		    case CAL_VGS_C1_P1_TBL:
+		    case CAL_VGS_C1_P2_TBL:
+		    case CAL_VGS_C1_P3_TBL:
+		    case CAL_PWR_VDS_TBL:
+		    case CAL_PWR_VGS_C0_P0_TBL:
+		    case CAL_PWR_VGS_C0_P1_TBL:
+		    case CAL_PWR_VGS_C0_P2_TBL:
+		    case CAL_PWR_VGS_C0_P3_TBL:
+		    case CAL_PWR_VGS_C1_P0_TBL:
+		    case CAL_PWR_VGS_C1_P1_TBL:
+		    case CAL_PWR_VGS_C1_P2_TBL:
+		    case CAL_PWR_VGS_C1_P3_TBL:
+		    case CAL_FREQ_TX0_FB_TBL:
+		    case CAL_FREQ_TX1_FB_TBL:
+		    case CAL_TEMP_TX0_FB_TBL:
+		    case CAL_TEMP_TX1_FB_TBL:
 				{
 					int   	   row = 0;
 					calsave_s  sttableval = {0};
@@ -334,8 +324,10 @@ int memdb_import(char *dirname, char *filename)
 				}
 				break;
 
-			case CAL_FLTR_PARAM_C1_TBL:
-			case CAL_FLTR_PARAM_C2_TBL:
+		    case CAL_FLTR_PARAM_TX_C0_TBL:
+		    case CAL_FLTR_PARAM_TX_C1_TBL:
+		    case CAL_FLTR_PARAM_RX_C0_TBL:
+		    case CAL_FLTR_PARAM_RX_C1_TBL:
 				{
 					int   	   row = 0;
 					calsave_s  sttableval = {0};

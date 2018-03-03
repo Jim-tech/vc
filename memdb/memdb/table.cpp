@@ -420,12 +420,13 @@ u32 ru_init_caltbl(void)
     {
     	
 		//为兼容已发货产品的前向/反馈/反向温度补偿数据不正确而处理
+#if 0
 		if ((table_id >= CAL_TEMP_TX1_TBL && table_id <= CAL_TEMP_FB2_TBL)
 			&& pdesc[table_id].version == 1)
 		{
 			ru_set_caltbl_invalid(table_id);
 		}
-			
+#endif			
 	
         if (0 != ru_check_caltbl(table_id))
         {
